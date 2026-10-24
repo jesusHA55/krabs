@@ -291,3 +291,7 @@ filter.
 - Selecting one pair per cluster avoids leg conflicts; a portfolio allocator that
   aggregates overlapping legs would allow more pairs.
 - Event risk (mergers, index changes, halts) is not modelled.
+- A warm-start optimizer run (folds 2021-03 → 2025-06, 20 random trials) found
+  no positive fold mean: fold Sharpe 0.03 and −0.41, score −0.33. The warm
+  holdout was +0.69% (Sharpe 1.06, 46 trades), but a positive holdout from a
+  negative in-sample search is not evidence of an edge.

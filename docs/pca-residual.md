@@ -160,4 +160,8 @@ backtest alpha; check it before trusting a residual strategy.
 - The component count and hedging horizon are fixed, not cross-validated.
 - Hedges are not rebalanced between signal events, so factor drift can
   accumulate on longer holds.
-- The strategy is research code, not a deployment candidate.
+- A warm-start optimizer search (12 trials, 2020-08 → 2025-06 folds) selected
+  a different profile (entry 2.69, exit 0.66, 7 components, 12 legs) with fold
+  Sharpe −0.16 / +0.69 and a **negative** 2025-06 → 2026-10 holdout
+  (Sharpe −0.59, −0.74%, 1,286 trades). The strategy remains research code,
+  not a deployment candidate.

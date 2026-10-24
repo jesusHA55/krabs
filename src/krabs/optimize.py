@@ -302,16 +302,26 @@ class StrategyOptimizer:
         self._quiet.propagate = False
         self._quiet.setLevel(logging.CRITICAL)
 
-        start, end = bounds
-        if self.warmup_bars:
-            start = max(start, _after_warmup(feed, cfg.market.timeframe, start, self.warmup_bars))
-        self.bounds = (start, end)
-        if holdout > 0:
-            cut = start + (end - start) * (1.0 - holdout)
-            self.optimize_range = (start, cut)
+        raw_start, end = bounds
+        cut = (
+            raw_start + (end - raw_start) * (1.0 - holdout) if holdout > 0 else None
+        )
+        scored_start = (
+            max(
+                raw_start,
+                _after_warmup(feed, cfg.market.timeframe, raw_start, self.warmup_bars),
+            )
+            if self.warmup_bars
+            else raw_start
+        )
+        if cut is not None and scored_start >= cut:
+            raise ValueError("warmup_bars consumes the entire optimization period")
+        self.bounds = (scored_start, end)
+        if cut is not None:
+            self.optimize_range = (scored_start, cut)
             self.holdout_range = (cut, end)
         else:
-            self.optimize_range = (start, end)
+            self.optimize_range = (scored_start, end)
             self.holdout_range = None
         self.folds = _split_range(*self.optimize_range, max(1, folds))
 

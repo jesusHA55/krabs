@@ -125,6 +125,11 @@ class OptimizerTests(unittest.TestCase):
         )
         self.assertEqual(optimizer.warmup_bars, 50)
         self.assertEqual(optimizer.bounds[0], bars[50].ts)
+        raw_start, raw_end = bars[0].ts, bars[-1].ts
+        self.assertEqual(
+            optimizer.holdout_range[0],
+            raw_start + (raw_end - raw_start) * 0.8,
+        )
 
         metrics = optimizer._holdout({"fast": 5, "slow": 20, "allocation": 0.2})
         self.assertIsNotNone(metrics)

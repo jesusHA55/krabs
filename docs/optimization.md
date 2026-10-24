@@ -48,7 +48,8 @@ What it does:
    are ready at the fold boundary. The prefix is not traded, scored, or included
    in the equity curve. Without it, a cold start silently loses the first
    formation window and understates trades. The optimization range is shifted
-   forward past the prefix so fold 1 is warm too.
+   forward past the prefix so fold 1 is warm too; the holdout stays at the
+   original 80/20 boundary so runs remain comparable.
 4. Splits the optimization period into `--folds` contiguous windows. Each
    candidate is backtested independently in every fold, always starting with a
    fresh wallet and strategy instance.
