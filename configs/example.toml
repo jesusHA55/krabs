@@ -1,0 +1,70 @@
+# Krabs example configuration -- fully offline.
+# Runs a synthetic-data backtest; no API keys and no network required.
+
+[app]
+name = "krabs"
+mode = "backtest"          # backtest | paper | broker-paper | live
+data_dir = "var"
+log_level = "INFO"
+log_json = false
+
+[market]
+symbols = ["SPY", "QQQ", "AAPL"]
+timeframe = "1Min"          # 1Min, 5Min, 15Min, 30Min, 1Hour, 1Day
+history_days = 5            # live: how much history to warm indicators with
+enforce_market_hours = true
+
+[wallet]
+starting_cash = 100000.0
+currency = "USD"
+allow_short = false
+margin_multiplier = 1.0     # 1.0 = cash account, 2.0 = Reg-T style margin
+fractional = true
+
+[execution]
+slippage_bps = 1.0
+half_spread_bps = 1.5
+commission_per_share = 0.0
+min_commission = 0.0
+max_participation = 0.25    # max fraction of a bar's volume a single order may take
+allow_partial_fills = true
+
+[risk]
+max_order_notional = 25000.0
+max_position_pct = 0.25     # max |position| per symbol as a share of equity
+max_gross_exposure_pct = 0.95
+max_daily_loss_pct = 0.03   # halt trading after -3% on the day
+max_open_orders = 20
+max_data_age_s = 120        # stale-feed guard (live/paper only)
+price_collar_pct = 0.05     # reject limit/stop prices >5% away from last trade
+duplicate_window_s = 30     # suppress identical orders inside this window
+allowed_symbols = []        # empty = allow every symbol in [market].symbols
+
+[broker]
+provider = "alpaca"
+paper = true                # ignored by the local paper broker
+base_url = ""               # blank => derived from `paper`
+data_url = ""
+api_key_env = "ALPACA_API_KEY"
+api_secret_env = "ALPACA_SECRET_KEY"
+
+[feed]
+provider = "synthetic"      # synthetic | csv | alpaca
+csv_path = ""
+poll_seconds = 5.0
+warmup_bars = 300
+synthetic_days = 90
+synthetic_seed = 7
+synthetic_volatility = 0.22
+synthetic_drift = 0.08
+
+[storage]
+enabled = false
+path = "var/krabs.db"
+
+[backtest]
+report_dir = "reports"
+
+[strategy]
+name = "sma_cross"
+params = { fast = 20, slow = 60, allocation = 0.20 }

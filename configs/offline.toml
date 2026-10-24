@@ -1,0 +1,69 @@
+# Offline deployment smoke test: accelerated synthetic bars, local paper wallet,
+# no API keys, no network. Exercises the full runtime and audit trail.
+# Run with: ./krabs paper --offline -c configs/offline.toml
+
+[app]
+name = "krabs"
+mode = "paper"
+data_dir = "var"
+log_level = "INFO"
+log_json = false
+
+[market]
+symbols = ["SPY", "QQQ"]
+timeframe = "1Min"
+history_days = 2
+enforce_market_hours = false   # synthetic bars are generated around the clock
+
+[wallet]
+starting_cash = 100000.0
+currency = "USD"
+allow_short = false
+margin_multiplier = 1.0
+fractional = true
+
+[execution]
+slippage_bps = 1.0
+half_spread_bps = 1.5
+commission_per_share = 0.0
+min_commission = 0.0
+max_participation = 0.0       # synthetic volume is not meaningful
+allow_partial_fills = true
+
+[risk]
+max_order_notional = 25000.0
+max_position_pct = 0.25
+max_gross_exposure_pct = 0.60
+max_daily_loss_pct = 0.05
+max_open_orders = 10
+max_data_age_s = 120
+price_collar_pct = 0.05
+duplicate_window_s = 0
+allowed_symbols = []
+
+[broker]
+# Unused in offline mode; kept so the config is valid.
+provider = "paper"
+paper = true
+api_key_env = "ALPACA_API_KEY"
+api_secret_env = "ALPACA_SECRET_KEY"
+
+[feed]
+provider = "synthetic"
+offline = true
+poll_seconds = 1.0            # one accelerated bar per second
+warmup_bars = 390
+synthetic_seed = 7
+synthetic_volatility = 0.22
+synthetic_drift = 0.08
+
+[storage]
+enabled = true
+path = "var/krabs.db"
+
+[backtest]
+report_dir = "reports"
+
+[strategy]
+name = "buy_hold"
+params = { allocation = 0.20 }

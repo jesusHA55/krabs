@@ -1,0 +1,3 @@
+# Generated from Yahoo Finance; regenerate with scripts/fetch_sample_data.py.
+# Kept out of git because redistribution is subject to Yahoo's terms.
+*.csv

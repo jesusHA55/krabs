@@ -1,0 +1,66 @@
+# Live market data + Alpaca paper account.
+# Exercises the real order API without risking capital. Requires:
+#   export ALPACA_API_KEY=...
+#   export ALPACA_SECRET_KEY=...
+# Run with:  ./krabs paper -c configs/alpaca-paper.toml
+
+[app]
+name = "krabs"
+mode = "broker-paper"
+data_dir = "var"
+log_level = "INFO"
+log_json = true
+
+[market]
+symbols = ["SPY", "QQQ"]
+timeframe = "1Min"
+history_days = 5
+enforce_market_hours = true
+
+[wallet]
+starting_cash = 100000.0
+currency = "USD"
+allow_short = false
+margin_multiplier = 1.0
+fractional = true
+
+[execution]
+slippage_bps = 1.0
+half_spread_bps = 1.5
+commission_per_share = 0.0
+min_commission = 0.0
+max_participation = 0.25
+allow_partial_fills = true
+
+[risk]
+max_order_notional = 10000.0
+max_position_pct = 0.20
+max_gross_exposure_pct = 0.80
+max_daily_loss_pct = 0.02
+max_open_orders = 10
+max_data_age_s = 120
+price_collar_pct = 0.03
+duplicate_window_s = 60
+allowed_symbols = []
+
+[broker]
+provider = "alpaca"
+paper = true
+base_url = ""
+data_url = "https://data.alpaca.markets"
+api_key_env = "ALPACA_API_KEY"
+api_secret_env = "ALPACA_SECRET_KEY"
+
+[feed]
+provider = "alpaca"
+csv_path = ""
+poll_seconds = 10.0
+warmup_bars = 390
+
+[storage]
+enabled = true
+path = "var/krabs.db"
+
+[strategy]
+name = "sma_cross"
+params = { fast = 20, slow = 60, allocation = 0.20 }

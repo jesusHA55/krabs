@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "krabs"
+version = "0.1.0"
+description = "Raspberry-Pi-native algorithmic trading platform with simulated and live wallets"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Krabs" }]
+dependencies = []
+
+[project.optional-dependencies]
+# Pearl's core is pure Python. These are for future vectorised/advanced
+# estimators (Johansen, band-pass, full wavelet families), not required today.
+pearl = ["numpy>=1.26", "scipy>=1.11"]
+dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.10"]
+
+[project.scripts]
+krabs = "krabs.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/krabs"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+warn_unused_ignores = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

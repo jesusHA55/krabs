@@ -1,0 +1,43 @@
+[Unit]
+Description=Krabs monitoring dashboard
+Documentation=file:///opt/krabs/docs/dashboard.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=krabs
+Group=krabs
+WorkingDirectory=/opt/krabs
+EnvironmentFile=/etc/krabs/krabs.env
+Environment=PYTHONUNBUFFERED=1
+# Read-only by default. Add --allow-controls to enable the kill switch in the UI.
+ExecStart=/opt/krabs/.venv/bin/krabs dashboard -c /etc/krabs/krabs.toml --host 127.0.0.1 --port 8787
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=15
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+RestrictAddressFamilies=AF_INET AF_INET6
+UMask=0077
+ReadWritePaths=/opt/krabs/var
+MemoryMax=512M
+CPUQuota=50%
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=krabs-dashboard
+
+[Install]
+WantedBy=multi-user.target

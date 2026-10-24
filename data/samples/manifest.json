@@ -1,0 +1,176 @@
+{
+  "source": "Yahoo Finance chart API (daily bars)",
+  "adjusted": true,
+  "generated_at": "2026-10-24T22:12:41+00:00",
+  "range": {
+    "start": "2020-01-01",
+    "end": "2026-10-24"
+  },
+  "timeframe": "1Day",
+  "caveats": [
+    "Current large caps only: survivorship bias.",
+    "Yahoo data is unofficial and has no SLA.",
+    "Adjusted prices include dividends/splits; volume is unadjusted.",
+    "Verify licensing before redistributing the generated CSVs."
+  ],
+  "sectors": {
+    "information_technology": {
+      "name": "Information Technology",
+      "file": "information_technology.csv",
+      "symbols": [
+        "AAPL",
+        "MSFT",
+        "NVDA"
+      ],
+      "rows": 5136
+    },
+    "financials": {
+      "name": "Financials",
+      "file": "financials.csv",
+      "symbols": [
+        "JPM",
+        "BAC",
+        "GS"
+      ],
+      "rows": 5136
+    },
+    "health_care": {
+      "name": "Health Care",
+      "file": "health_care.csv",
+      "symbols": [
+        "JNJ",
+        "UNH",
+        "PFE"
+      ],
+      "rows": 5136
+    },
+    "consumer_discretionary": {
+      "name": "Consumer Discretionary",
+      "file": "consumer_discretionary.csv",
+      "symbols": [
+        "AMZN",
+        "TSLA",
+        "HD"
+      ],
+      "rows": 5136
+    },
+    "consumer_staples": {
+      "name": "Consumer Staples",
+      "file": "consumer_staples.csv",
+      "symbols": [
+        "PG",
+        "KO",
+        "WMT"
+      ],
+      "rows": 5136
+    },
+    "energy": {
+      "name": "Energy",
+      "file": "energy.csv",
+      "symbols": [
+        "XOM",
+        "CVX",
+        "COP"
+      ],
+      "rows": 5136
+    },
+    "industrials": {
+      "name": "Industrials",
+      "file": "industrials.csv",
+      "symbols": [
+        "CAT",
+        "UNP",
+        "HON"
+      ],
+      "rows": 5136
+    },
+    "materials": {
+      "name": "Materials",
+      "file": "materials.csv",
+      "symbols": [
+        "LIN",
+        "SHW",
+        "FCX"
+      ],
+      "rows": 5136
+    },
+    "utilities": {
+      "name": "Utilities",
+      "file": "utilities.csv",
+      "symbols": [
+        "NEE",
+        "DUK",
+        "SO"
+      ],
+      "rows": 5136
+    },
+    "real_estate": {
+      "name": "Real Estate",
+      "file": "real_estate.csv",
+      "symbols": [
+        "PLD",
+        "AMT",
+        "SPG"
+      ],
+      "rows": 5136
+    },
+    "communication_services": {
+      "name": "Communication Services",
+      "file": "communication_services.csv",
+      "symbols": [
+        "GOOGL",
+        "META",
+        "DIS"
+      ],
+      "rows": 5136
+    },
+    "benchmark": {
+      "name": "S&P 500 ETF",
+      "file": "benchmark.csv",
+      "symbols": [
+        "SPY"
+      ],
+      "rows": 1712
+    },
+    "etf_sectors": {
+      "name": "Sector & industry ETFs",
+      "file": "etf_sectors.csv",
+      "symbols": [
+        "XLK",
+        "SMH",
+        "IGV",
+        "VGT",
+        "XLF",
+        "KBE",
+        "KRE",
+        "IAI",
+        "XLV",
+        "XBI",
+        "IHI",
+        "XPH",
+        "XLE",
+        "XOP",
+        "OIH",
+        "XES",
+        "XLY",
+        "XRT",
+        "XLP",
+        "XLI",
+        "XAR",
+        "ITA",
+        "XLB",
+        "XME",
+        "GDX",
+        "XLU",
+        "VPU",
+        "XLRE",
+        "IYR",
+        "VNQ",
+        "XLC",
+        "XTL"
+      ],
+      "rows": 54784
+    }
+  },
+  "failures": []
+}

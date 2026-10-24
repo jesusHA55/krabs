@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  python:
+    name: python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Unit tests (stdlib only)
+        env:
+          PYTHONPATH: src
+        run: python -m unittest discover -s tests -v
+      - name: Offline backtest smoke test
+        run: ./krabs backtest -c configs/example.toml --days 3 --quiet --report-dir /tmp/reports
+      - name: CLI smoke tests
+        run: |
+          ./krabs strategies
+          ./krabs doctor -c configs/example.toml || true
+
+  rust:
+    name: rust core
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Pure Rust tests (no Python linking)
+        run: |
+          cargo test --manifest-path crates/krabs_core/Cargo.toml --no-default-features

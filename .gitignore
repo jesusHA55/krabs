@@ -1,0 +1,32 @@
+# Runtime state
+var/
+reports/
+*.db
+*.db-wal
+*.db-shm
+
+# Secrets
+.env
+*.env
+!deploy/*.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Rust
+target/
+crates/*/target/
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store

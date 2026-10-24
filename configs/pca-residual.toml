@@ -1,0 +1,87 @@
+# Panel PCA stat-arb on sector/industry ETFs.
+# Requires the generated ETF sample: python3 scripts/fetch_sample_data.py
+#
+#   ./krabs backtest -c configs/pca-residual.toml
+
+[app]
+name = "krabs"
+mode = "backtest"
+data_dir = "var"
+log_level = "INFO"
+log_json = false
+
+[market]
+symbols = ["GDX", "IAI", "IGV", "IHI", "ITA", "IYR", "KBE", "KRE", "OIH", "SMH", "VGT", "VNQ", "VPU", "XAR", "XBI", "XES", "XLB", "XLC", "XLE", "XLF", "XLI", "XLK", "XLP", "XLRE", "XLU", "XLV", "XLY", "XME", "XOP", "XPH", "XRT", "XTL"]
+timeframe = "1Day"
+history_days = 5
+enforce_market_hours = true
+
+[wallet]
+starting_cash = 100000.0
+currency = "USD"
+allow_short = true
+margin_multiplier = 1.0
+fractional = true
+
+[execution]
+slippage_bps = 1.0
+half_spread_bps = 1.0
+spreads_csv = "data/samples/etf_spreads.csv"
+commission_per_share = 0.0
+min_commission = 0.0
+max_participation = 0.0
+allow_partial_fills = true
+
+[risk]
+max_order_notional = 100000.0
+max_position_pct = 0.30
+max_gross_exposure_pct = 0.65
+max_daily_loss_pct = 0.05
+max_open_orders = 60
+max_data_age_s = 0
+price_collar_pct = 0.10
+duplicate_window_s = 0
+allowed_symbols = []
+
+[broker]
+provider = "paper"
+paper = true
+
+[feed]
+provider = "csv"
+csv_path = "data/samples/etf_sectors.csv"
+poll_seconds = 5.0
+warmup_bars = 300
+
+[storage]
+enabled = false
+path = "var/krabs.db"
+
+[backtest]
+report_dir = "reports"
+
+[strategy]
+name = "pca_residual"
+
+[strategy.params]
+symbols = ["GDX", "IAI", "IGV", "IHI", "ITA", "IYR", "KBE", "KRE", "OIH", "SMH", "VGT", "VNQ", "VPU", "XAR", "XBI", "XES", "XLB", "XLC", "XLE", "XLF", "XLI", "XLK", "XLP", "XLRE", "XLU", "XLV", "XLY", "XME", "XOP", "XPH", "XRT", "XTL"]
+window = 120
+refit = 20
+components = 5
+entry_z = 2.5
+exit_z = 1.0
+stop_z = 4.0
+friction_multiple = 1.0
+allocation = 0.10
+max_legs = 6
+max_positions = 4
+max_gross = 0.60
+max_hold_bars = 40
+min_hold_bars = 3
+min_resid_bps = 5.0
+max_bid_ask_bps = 5.0
+default_spread_bps = 2.0
+spreads_csv = "data/samples/etf_spreads.csv"
+slippage_bps = 1.0
+driver = "XLK"
+

@@ -1,0 +1,11 @@
+[Unit]
+Description=Nightly Krabs database backup
+
+[Timer]
+# 23:30 US/Eastern: after the close, before the overnight maintenance window.
+OnCalendar=*-*-* 23:30:00 America/New_York
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

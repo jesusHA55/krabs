@@ -1,0 +1,33 @@
+[package]
+name = "krabs_core"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "Rust hot path for the Krabs trading platform"
+license = "MIT"
+
+[lib]
+name = "krabs_core"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# abi3: one wheel works on every Python >= 3.11, which matters when Raspberry
+# Pi OS upgrades its Python between Debian releases.
+pyo3 = { version = "0.22", optional = true, features = ["abi3-py311"] }
+
+[features]
+# Default build is the Python extension. `cargo test --no-default-features`
+# compiles the pure numeric kernels with no Python dependency at all.
+default = ["extension-module"]
+extension-module = ["python", "pyo3/extension-module"]
+python = ["dep:pyo3"]
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "debuginfo"
+
+[tool.maturin]
+module-name = "krabs_core"
+features = ["extension-module"]

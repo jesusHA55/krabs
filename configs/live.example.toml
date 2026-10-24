@@ -1,0 +1,65 @@
+# REAL MONEY. Copy to configs/live.toml (git-ignored) and review every value.
+# Start with a tiny account. `krabs live` additionally requires the explicit
+# --i-understand-the-risk flag; there is no way to enable live trading by
+# accident through a config file alone.
+
+[app]
+name = "krabs"
+mode = "live"
+data_dir = "var"
+log_level = "INFO"
+log_json = true
+
+[market]
+symbols = ["SPY"]
+timeframe = "5Min"
+history_days = 10
+enforce_market_hours = true
+
+[wallet]
+starting_cash = 2000.0      # only used for local pre-trade estimates in live mode
+currency = "USD"
+allow_short = false
+margin_multiplier = 1.0
+fractional = true
+
+[execution]
+# These are estimates for local risk math only: real fills happen at the broker.
+slippage_bps = 2.0
+half_spread_bps = 2.0
+commission_per_share = 0.0
+min_commission = 0.0
+max_participation = 0.10
+allow_partial_fills = true
+
+[risk]
+max_order_notional = 250.0
+max_position_pct = 0.10
+max_gross_exposure_pct = 0.50
+max_daily_loss_pct = 0.01
+max_open_orders = 3
+max_data_age_s = 180
+price_collar_pct = 0.02
+duplicate_window_s = 120
+allowed_symbols = ["SPY"]
+
+[broker]
+provider = "alpaca"
+paper = false
+base_url = ""
+data_url = "https://data.alpaca.markets"
+api_key_env = "ALPACA_API_KEY"
+api_secret_env = "ALPACA_SECRET_KEY"
+
+[feed]
+provider = "alpaca"
+poll_seconds = 15.0
+warmup_bars = 390
+
+[storage]
+enabled = true
+path = "var/krabs.db"
+
+[strategy]
+name = "sma_cross"
+params = { fast = 20, slow = 60, allocation = 0.10 }

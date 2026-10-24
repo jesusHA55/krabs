@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0e13">
+  <meta name="color-scheme" content="dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Krabs</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/static/manifest.webmanifest">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">K</div>
+      <div class="brand-text">
+        <h1>Krabs</h1>
+        <div class="sub">
+          <span id="mode-badge" class="badge">connecting</span>
+          <span id="run-id" class="mono muted"></span>
+        </div>
+      </div>
+    </div>
+    <div class="top-right">
+      <div id="connection" class="conn" title="Connection status">
+        <span class="dot"></span><span id="updated">…</span>
+      </div>
+      <button id="refresh" class="icon" type="button" title="Refresh" aria-label="Refresh">↻</button>
+      <button id="lock" class="icon" type="button" title="Lock dashboard" aria-label="Lock">⏻</button>
+    </div>
+  </header>
+
+  <div id="alert" class="alert hidden" role="status"></div>
+
+  <nav class="tabs" id="tabs" aria-label="Dashboard sections">
+    <button class="tab active" data-tab="overview" type="button">Overview</button>
+    <button class="tab" data-tab="pearl" type="button">Pearl</button>
+    <button class="tab" data-tab="positions" type="button">Positions</button>
+    <button class="tab" data-tab="orders" type="button">Orders</button>
+    <button class="tab" data-tab="fills" type="button">Fills</button>
+    <button class="tab" data-tab="runs" type="button">Runs</button>
+    <button class="tab" data-tab="reports" type="button">Reports</button>
+    <button class="tab" data-tab="risk" type="button">Risk</button>
+    <button class="tab" data-tab="strategies" type="button">Strategies</button>
+  </nav>
+
+  <main>
+    <section id="panel-overview" class="panel active">
+      <div id="cards" class="cards"></div>
+
+      <article class="card chart-card">
+        <div class="card-head">
+          <h2>Equity</h2>
+          <span id="chart-run" class="muted mono"></span>
+        </div>
+        <div class="chart-wrap"><canvas id="chart" aria-label="Equity curve"></canvas></div>
+        <div id="chart-legend" class="legend muted"></div>
+      </article>
+
+      <div class="grid-2">
+        <article class="card">
+          <div class="card-head">
+            <h2>Positions</h2>
+            <button class="link" data-goto="positions" type="button">All</button>
+          </div>
+          <div id="positions-mini"></div>
+        </article>
+        <article class="card">
+          <div class="card-head"><h2>Session</h2></div>
+          <div id="session"></div>
+        </article>
+      </div>
+
+      <article class="card">
+        <div class="card-head"><h2>Health</h2></div>
+        <div id="health" class="health"></div>
+      </article>
+
+      <div id="warnings"></div>
+    </section>
+
+    <section id="panel-pearl" class="panel">
+      <article class="card">
+        <div class="card-head"><h2>Pearl model</h2><span id="pearl-ready" class="muted"></span></div>
+        <div id="pearl"></div>
+      </article>
+    </section>
+
+    <section id="panel-positions" class="panel">
+      <article class="card">
+        <div class="card-head"><h2>Positions</h2><span id="positions-value" class="muted"></span></div>
+        <div id="positions"></div>
+      </article>
+    </section>
+
+    <section id="panel-orders" class="panel">
+      <article class="card">
+        <div class="card-head"><h2>Orders</h2><span class="muted">newest first</span></div>
+        <div id="orders"></div>
+      </article>
+    </section>
+
+    <section id="panel-fills" class="panel">
+      <article class="card">
+        <div class="card-head"><h2>Fills</h2><span class="muted">newest first</span></div>
+        <div id="fills"></div>
+      </article>
+    </section>
+
+    <section id="panel-runs" class="panel">
+      <article class="card">
+        <div class="card-head"><h2>Runs</h2><span class="muted">audit trail</span></div>
+        <div id="runs"></div>
+      </article>
+    </section>
+
+    <section id="panel-reports" class="panel">
+      <article class="card">
+        <div class="card-head"><h2>Reports</h2><span class="muted">backtests · optimizations · sweeps</span></div>
+        <div id="reports"></div>
+      </article>
+    </section>
+
+    <section id="panel-risk" class="panel">
+      <article class="card">
+        <div class="card-head"><h2>Risk limits</h2><span class="muted">read-only</span></div>
+        <div id="risk"></div>
+      </article>
+      <article class="card">
+        <div class="card-head"><h2>Kill switch</h2></div>
+        <div id="kill-controls"></div>
+      </article>
+      <article class="card">
+        <div class="card-head"><h2>Execution model</h2></div>
+        <div id="execution"></div>
+      </article>
+    </section>
+
+    <section id="panel-strategies" class="panel">
+      <article class="card">
+        <div class="card-head"><h2>Registered strategies</h2></div>
+        <div id="strategies"></div>
+      </article>
+    </section>
+  </main>
+
+  <noscript><div class="alert bad">This dashboard requires JavaScript. Use the API or <span class="mono">krabs status</span>.</div></noscript>
+  <div id="toast" class="toast" role="status"></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

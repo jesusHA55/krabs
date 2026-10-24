@@ -1,0 +1,55 @@
+[Unit]
+Description=Krabs algorithmic trading
+Documentation=file:///opt/krabs/docs/deployment.md
+After=network-online.target time-sync.target
+Wants=network-online.target time-sync.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=krabs
+Group=krabs
+WorkingDirectory=/opt/krabs
+EnvironmentFile=/etc/krabs/krabs.env
+Environment=PYTHONUNBUFFERED=1
+# Change `paper` to `broker-paper` or `live` only after reading docs/deployment.md.
+ExecStart=/opt/krabs/.venv/bin/krabs paper -c /etc/krabs/krabs.toml
+# SIGTERM -> graceful stop after the current cycle; SIGUSR1 -> kill switch.
+KillSignal=SIGTERM
+KillMode=mixed
+TimeoutStopSec=45
+Restart=on-failure
+RestartSec=10
+
+# --- hardening -----------------------------------------------------------
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RemoveIPC=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+RestrictAddressFamilies=AF_INET AF_INET6
+UMask=0077
+ReadWritePaths=/opt/krabs/var /opt/krabs/reports
+MemoryMax=1G
+CPUQuota=200%
+LimitNOFILE=8192
+
+# --- logging -------------------------------------------------------------
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=krabs
+
+[Install]
+WantedBy=multi-user.target

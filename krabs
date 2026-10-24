@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Development launcher: run Krabs from the checkout without installing it.
+# Production uses the `krabs` console script installed inside a venv.
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export PYTHONPATH="${ROOT}/src${PYTHONPATH:+:${PYTHONPATH}}"
+exec python3 -m krabs "$@"

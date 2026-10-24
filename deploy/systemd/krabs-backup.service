@@ -1,0 +1,15 @@
+[Unit]
+Description=Krabs SQLite backup
+Documentation=file:///opt/krabs/docs/operations.md
+After=krabs.service
+
+[Service]
+Type=oneshot
+User=krabs
+Group=krabs
+Environment=KRABS_DB=/opt/krabs/var/krabs.db
+Environment=KRABS_BACKUP_DIR=/opt/krabs/backups
+Environment=KRABS_BACKUP_KEEP=14
+ExecStart=/opt/krabs/scripts/backup.sh
+Nice=10
+IOSchedulingClass=idle

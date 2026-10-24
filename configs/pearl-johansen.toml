@@ -1,0 +1,66 @@
+# Pearl pairs-trading example using Johansen cointegration: AAPL vs MSFT.
+# Requires the generated sample from scripts/fetch_sample_data.py.
+#
+#   python3 scripts/fetch_sample_data.py
+#   ./krabs backtest -c configs/pearl-pairs.toml
+#   ./krabs backtest -c configs/pearl-pairs.toml --symbols AAPL,MSFT
+
+[app]
+name = "krabs"
+mode = "backtest"
+data_dir = "var"
+log_level = "INFO"
+log_json = false
+
+[market]
+symbols = ["AAPL", "MSFT"]
+timeframe = "1Day"
+history_days = 5
+enforce_market_hours = true
+
+[wallet]
+starting_cash = 100000.0
+currency = "USD"
+allow_short = true          # the short leg of the pair
+margin_multiplier = 1.0
+fractional = true
+
+[execution]
+slippage_bps = 2.0
+half_spread_bps = 2.0
+commission_per_share = 0.0
+min_commission = 0.0
+max_participation = 0.0
+allow_partial_fills = true
+
+[risk]
+max_order_notional = 100000.0
+max_position_pct = 0.45
+max_gross_exposure_pct = 0.85
+max_daily_loss_pct = 0.10
+max_open_orders = 10
+max_data_age_s = 0
+price_collar_pct = 0.10
+duplicate_window_s = 0
+allowed_symbols = []
+
+[broker]
+provider = "paper"
+paper = true
+
+[feed]
+provider = "csv"
+csv_path = "data/samples/information_technology.csv"
+poll_seconds = 5.0
+warmup_bars = 300
+
+[storage]
+enabled = false
+path = "var/krabs.db"
+
+[backtest]
+report_dir = "reports"
+
+[strategy]
+name = "pearl_pairs"
+params = { left = "AAPL", right = "MSFT", model = { window = 120, entry = 2.0, exit = 0.5, allocation = 0.40, min_obs = 60, rebalance_tolerance = 0.20, method = "johansen" } }
