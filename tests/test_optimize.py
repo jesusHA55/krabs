@@ -109,6 +109,27 @@ class InMemoryFeedTests(unittest.TestCase):
 
 
 class OptimizerTests(unittest.TestCase):
+    def test_warmup_shifts_start_and_warms_the_holdout(self):
+        bars = make_bars(200)
+        optimizer = StrategyOptimizer(
+            cfg(),
+            "sma_cross",
+            InMemoryFeed(bars),
+            [parse_space("fast", "2:6", 5)],
+            folds=2,
+            holdout=0.2,
+            objective="total_return",
+            warmup_bars=50,
+            min_trades=1,
+            seed=3,
+        )
+        self.assertEqual(optimizer.warmup_bars, 50)
+        self.assertEqual(optimizer.bounds[0], bars[50].ts)
+
+        metrics = optimizer._holdout({"fast": 5, "slow": 20, "allocation": 0.2})
+        self.assertIsNotNone(metrics)
+        self.assertGreater(metrics.get("trades", 0), 0)
+
     def test_param_key_handles_nested_lists(self):
         from krabs.optimize import _param_key
 

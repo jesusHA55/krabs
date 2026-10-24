@@ -142,10 +142,14 @@ class BacktestEngine:
         self,
         start: datetime | None = None,
         end: datetime | None = None,
+        *,
+        warmup_bars: int = 0,
     ) -> BacktestResult:
         t0 = time.perf_counter()
         ctx = self._make_context()
         self._ctx = ctx
+        if start is not None and warmup_bars > 0:
+            self._prefill_history(start, int(warmup_bars))
         if self.store is not None:
             self.store.start_run(
                 run_id=self.run_id,
@@ -243,6 +247,46 @@ class BacktestEngine:
             for ts, reason in self.risk.drain_events():
                 self.store.log_event(self.run_id, "ERROR", "risk", {"reason": reason})
         return result
+
+    def _prefill_history(self, start: datetime, warmup_bars: int) -> None:
+        """Load history before ``start`` without trading or recording metrics.
+
+        Strategies read ``ctx.bars``/``ctx.history`` for screening and model
+        warm-up. Without this, a fold or holdout starts blind and loses its
+        first formation window; with it, the evaluation window starts warm
+        while the wallet, fills and equity curve still begin at ``start``.
+        """
+        limit = max(1, int(warmup_bars))
+        buffers: dict[str, deque[Bar]] = {
+            symbol: deque(maxlen=limit) for symbol in self.cfg.market.symbols
+        }
+        for chunk in self.feed.bars(
+            self.cfg.market.symbols, self.cfg.market.timeframe, None, start
+        ):
+            for bar in chunk:
+                if bar.ts >= start:
+                    continue
+                buffer = buffers.get(bar.symbol)
+                if buffer is not None:
+                    buffer.append(bar)
+        latest: datetime | None = None
+        loaded = 0
+        for symbol, buffer in buffers.items():
+            if not buffer:
+                continue
+            target = self._history.setdefault(symbol, deque(maxlen=max(1000, limit)))
+            target.extend(buffer)
+            loaded += len(buffer)
+            if latest is None or buffer[-1].ts > latest:
+                latest = buffer[-1].ts
+        if latest is not None:
+            self.clock.set(latest)
+        self.log.debug(
+            "warm start: %d bars across %d symbols before %s",
+            loaded,
+            len(buffers),
+            start,
+        )
 
     # -- wiring ----------------------------------------------------------
     def _make_context(self) -> StrategyContext:

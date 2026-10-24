@@ -195,6 +195,7 @@ class OptimizationResult:
     strategy: str
     method: str
     objective: str
+    warmup_bars: int
     spaces: list[ParamSpace]
     base_params: dict[str, Any]
     bounds: tuple[datetime, datetime]
@@ -213,6 +214,7 @@ class OptimizationResult:
             "strategy": self.strategy,
             "method": self.method,
             "objective": self.objective,
+            "warmup_bars": self.warmup_bars,
             "spaces": [s.to_dict() for s in self.spaces],
             "base_params": self.base_params,
             "bounds": [_iso(self.bounds[0]), _iso(self.bounds[1])],
@@ -248,6 +250,7 @@ class StrategyOptimizer:
         folds: int = 4,
         holdout: float = 0.2,
         objective: str = "sharpe",
+        warmup_bars: int = 0,
         min_trades: int = 1,
         penalty: float = 0.5,
         dd_penalty: float = 0.5,
@@ -263,6 +266,8 @@ class StrategyOptimizer:
             raise ValueError("folds must be >= 1")
         if not 0 <= holdout < 1:
             raise ValueError("holdout must be in [0, 1)")
+        if warmup_bars < 0:
+            raise ValueError("warmup_bars must be >= 0")
         bounds = feed.bounds()
         if bounds is None:
             raise ValueError("no bars available for optimization")
@@ -282,6 +287,7 @@ class StrategyOptimizer:
         self.spaces = list(spaces)
         self.base_params = dict(base_params or {})
         self.objective = objective
+        self.warmup_bars = int(warmup_bars)
         self.min_trades = min_trades
         self.penalty = penalty
         self.dd_penalty = dd_penalty
@@ -297,6 +303,8 @@ class StrategyOptimizer:
         self._quiet.setLevel(logging.CRITICAL)
 
         start, end = bounds
+        if self.warmup_bars:
+            start = max(start, _after_warmup(feed, cfg.market.timeframe, start, self.warmup_bars))
         self.bounds = (start, end)
         if holdout > 0:
             cut = start + (end - start) * (1.0 - holdout)
@@ -347,6 +355,7 @@ class StrategyOptimizer:
             strategy=self.strategy_name,
             method=method,
             objective=self.objective,
+            warmup_bars=self.warmup_bars,
             spaces=self.spaces,
             base_params=self.base_params,
             bounds=self.bounds,
@@ -385,7 +394,9 @@ class StrategyOptimizer:
                     run_id=f"{self.run_id}-t{self._counter}-f{index}",
                     logger=self._quiet,
                 )
-                result = engine.run(start=start, end=end)
+                result = engine.run(
+                    start=start, end=end, warmup_bars=self.warmup_bars
+                )
             except Exception as exc:  # noqa: BLE001 - keep the search alive
                 errors.append(f"fold {index}: {exc}")
                 continue
@@ -453,7 +464,7 @@ class StrategyOptimizer:
                 self.feed,
                 run_id=f"{self.run_id}-holdout",
                 logger=self._quiet,
-            ).run(start=start, end=end)
+            ).run(start=start, end=end, warmup_bars=self.warmup_bars)
         except Exception as exc:  # noqa: BLE001
             return {"error": repr(exc)}
         return _fold_metrics(result.metrics)
@@ -554,6 +565,8 @@ def render_optimization_summary(result: OptimizationResult, top: int = 10) -> st
         f" data {_short_ts(result.bounds[0])} -> {_short_ts(result.bounds[1])} | "
         f"optimize {_short_ts(result.optimize_range[0])} -> {_short_ts(result.optimize_range[1])}"
     )
+    if result.warmup_bars:
+        lines.append(f" warm start: {result.warmup_bars} bars before every fold/holdout")
     if result.holdout_range:
         lines.append(
             f" holdout {_short_ts(result.holdout_range[0])} -> "
@@ -668,6 +681,20 @@ def _freeze(value: Any) -> Any:
 
 def _param_key(params: dict[str, Any]) -> tuple[tuple[str, Any], ...]:
     return tuple(sorted((key, _freeze(value)) for key, value in flatten(params).items()))
+
+
+def _after_warmup(feed, timeframe: str, start: datetime, warmup_bars: int) -> datetime:
+    """First timestamp after ``warmup_bars`` distinct bars of feed history."""
+    if warmup_bars <= 0:
+        return start
+    count = 0
+    for chunk in feed.bars(None, timeframe):
+        if not chunk:
+            continue
+        count += 1
+        if count > warmup_bars:
+            return max(start, chunk[0].ts)
+    return start
 
 
 def _split_range(

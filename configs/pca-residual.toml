@@ -51,7 +51,7 @@ paper = true
 provider = "csv"
 csv_path = "data/samples/etf_sectors.csv"
 poll_seconds = 5.0
-warmup_bars = 300
+warmup_bars = 150
 
 [storage]
 enabled = false

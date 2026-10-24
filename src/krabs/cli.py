@@ -145,6 +145,12 @@ def _build_parser() -> argparse.ArgumentParser:
         choices=("sharpe", "sortino", "total_return", "calmar", "profit_factor"),
         default="sharpe",
     )
+    opt.add_argument(
+        "--warmup-bars",
+        type=int,
+        default=None,
+        help="history bars fed before each fold/holdout (default: [feed].warmup_bars)",
+    )
     opt.add_argument("--min-trades", type=int, default=1)
     opt.add_argument("--penalty", type=float, default=0.5, help="fold dispersion penalty")
     opt.add_argument("--dd-penalty", type=float, default=0.5, help="drawdown penalty")
@@ -399,6 +405,11 @@ def cmd_optimize(cfg: Config, args: argparse.Namespace) -> int:
         folds=args.folds,
         holdout=args.holdout,
         objective=args.objective,
+        warmup_bars=(
+            args.warmup_bars
+            if args.warmup_bars is not None
+            else cfg.feed.warmup_bars
+        ),
         min_trades=args.min_trades,
         penalty=args.penalty,
         dd_penalty=args.dd_penalty,
@@ -408,7 +419,7 @@ def cmd_optimize(cfg: Config, args: argparse.Namespace) -> int:
     print(
         f"optimizing {name} over {len(bars):,} bars | {len(spaces)} parameters | "
         f"method={args.method} trials={args.trials} folds={args.folds} "
-        f"holdout={args.holdout:.0%}"
+        f"holdout={args.holdout:.0%} warmup={optimizer.warmup_bars} bars"
     )
     result = optimizer.run(args.method, args.trials)
     print(render_optimization_summary(result, top=args.top))

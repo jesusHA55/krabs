@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from krabs.backtest import BacktestEngine
 from krabs.config import Config
 from krabs.events import Bar, Side
-from krabs.feeds.base import group_bars
+from krabs.feeds.base import InMemoryFeed, group_bars
 from krabs.feeds.synthetic import SyntheticFeed
 from krabs.strategy.base import Strategy
 from krabs.strategy.examples.buy_hold import BuyHold
@@ -75,6 +75,27 @@ def cfg(**overrides) -> Config:
 
 
 class BacktestTests(unittest.TestCase):
+    def test_warmup_prefills_history_without_trading(self):
+        bars = []
+        for i in range(150):
+            price = 100.0 + i * 0.1
+            bars.append(
+                Bar("SPY", T0 + timedelta(minutes=i), price, price, price, price, 100_000)
+            )
+        start, end = bars[100].ts, bars[108].ts
+
+        warm = BacktestEngine(
+            cfg(), SmaCross(fast=5, slow=10, allocation=0.25), InMemoryFeed(bars), run_id="warm"
+        ).run(start=start, end=end, warmup_bars=30)
+        self.assertTrue(warm.fills)
+        self.assertEqual(warm.fills[0].ts, bars[101].ts)
+        self.assertEqual(warm.equity_curve[0].ts, start)
+
+        cold = BacktestEngine(
+            cfg(), SmaCross(fast=5, slow=10, allocation=0.25), InMemoryFeed(bars), run_id="cold"
+        ).run(start=start, end=end)
+        self.assertEqual(len(cold.fills), 0)
+
     def test_no_lookahead_fills_at_next_open(self):
         bars = [
             make_bar(1, 100, 101, 99, 100),

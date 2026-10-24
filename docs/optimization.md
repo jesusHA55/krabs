@@ -42,10 +42,17 @@ What it does:
 2. Splits the data chronologically:
    - **optimization period** = first `1 - holdout` (default 80%);
    - **holdout** = final 20%, touched once after selection.
-3. Splits the optimization period into `--folds` contiguous windows. Each
+3. Reserves a **warm-up prefix** of `[feed].warmup_bars` bars (or
+   `--warmup-bars`) before the scored range. Every fold and the holdout start
+   with that history preloaded into `ctx.bars`, so screening and model warm-up
+   are ready at the fold boundary. The prefix is not traded, scored, or included
+   in the equity curve. Without it, a cold start silently loses the first
+   formation window and understates trades. The optimization range is shifted
+   forward past the prefix so fold 1 is warm too.
+4. Splits the optimization period into `--folds` contiguous windows. Each
    candidate is backtested independently in every fold, always starting with a
    fresh wallet and strategy instance.
-4. Scores each candidate:
+5. Scores each candidate:
 
    ```
    score = mean(metric)
@@ -55,12 +62,12 @@ What it does:
    ```
 
    Candidates with fewer than `--min-trades` round trips are rejected.
-5. Searches with one of:
+6. Searches with one of:
    - `random` — strong, simple baseline;
    - `grid` — exhaustive; useful only for tiny spaces;
    - `de` — differential evolution, a derivative-free evolutionary method that
      works on integer, float and categorical spaces.
-6. Evaluates the winner **once** on the holdout and writes everything to
+7. Evaluates the winner **once** on the holdout and writes everything to
    `reports/optimize-<run_id>/` (`result.json`, `trials.csv`, `summary.txt`).
 
 ### Reading the output
@@ -270,5 +277,16 @@ parameters, the optimizer in this repo will beat an RNN nine times out of ten.
 - Contiguous folds ignore regime labels; a fold can be all bull or all bear.
 - The objective is scalar; multi-objective trade-offs need a Pareto method.
 - The holdout can be unlucky. One holdout is evidence, not proof.
+- Warm starts give the strategy price history, not positions. A fold always
+  begins flat, so carry-in risk and hedge drift are not modelled. Strategies
+  that keep their own rolling buffers in `on_bar` (rather than reading
+  `ctx.bars`) still start cold.
+- A holdout evaluated as a fresh warm start can differ from the same date in
+  one continuous run, because the continuous run carries open signals and
+  filter state across the boundary. Report both when the strategy is
+  stateful.
+- `warmup_bars` must cover the slowest warm-up in the search space. If a
+  parameter samples a longer window than the prefix, that trial still starts
+  partially cold.
 - Optimizing parameters cannot fix a strategy with no edge. It can only make
   the overfit more convincing.
