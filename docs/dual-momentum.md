@@ -43,7 +43,7 @@ The signal is causal:
 The sample data fetch now includes the four ETFs:
 
 ```bash
-python3 scripts/fetch_sample_data.py --only dual_momentum --start 2010-01-01
+python3 scripts/fetch_sample_data.py --only dual_momentum --start 2007-01-01
 ```
 
 This writes `data/samples/dual_momentum.csv` with adjusted daily bars for
@@ -75,65 +75,89 @@ produces rejected buys; 0.97 is the largest clean setting.
 
 ## Results
 
-Sample 2010-01 → 2026-10, with the first rebalance in 2011-02 after the
-12-month warm-up. Adjusted prices; costs charged with the per-symbol spreads in
-the config:
+Sample 2007-01 → 2026-10, including the global financial crisis. The first
+rebalance is 2008-06 after the 12-month warm-up. Adjusted prices; costs charged
+with the per-symbol spreads in the config.
 
 | Metric | Dual momentum | SPY buy & hold |
 |---|---:|---:|
-| Total return | +220.8% | +708.0% |
-| CAGR | 7.18% | 13.98% |
-| Sharpe (daily) | 0.54 | 0.86 |
-| Sortino | 0.48 | 1.06 |
-| Max drawdown | −32.8% | −33.7% |
-| Average exposure | 90.8% | 100% |
-| Turnover | 57.6× equity | — |
-| Round trips | 134 | — |
-| Win rate | 85.8% | — |
-| Profit factor | 3.51 | — |
+| Total return | +310.7% | +670.6% |
+| CAGR | 7.39% | 10.86% |
+| Sharpe (daily) | 0.55 | 0.63 |
+| Sortino | 0.49 | 0.77 |
+| Max drawdown | **−32.8%** | **−55.2%** |
+| Calmar (CAGR / maxDD) | 0.225 | 0.197 |
+| Average exposure | 90.1% | 100% |
+| Turnover | 64.8× equity | — |
+| Round trips | 156 | — |
+| Win rate | 86.5% | — |
+| Profit factor | 3.67 | — |
 | Rejections | 0 | — |
 
-Selection breakdown over 189 monthly decisions: SPY 134, VEU 35, AGG 20.
+Selection breakdown over 221 monthly decisions: SPY 142, VEU 43, AGG 36.
 
-**GEM underperformed a simple SPY buy-and-hold over this particular period**
-and had almost the same drawdown. That is a real result, not an implementation
-failure:
+### By regime
 
-- 2010–2026 was an unusually persistent US large-cap bull market. Ex-US equities
-  lagged for most of it, and bonds had a poor 2022.
-- Relative momentum selected VEU for 35 months and the defensive AGG for 20
-  months; those periods dragged on the compounded return.
-- GEM's protection is against prolonged equity bear markets, not fast crashes.
-  It did not avoid the COVID crash; the absolute filter reacts at the next
-  month-end.
+| Period | GEM | SPY |
+|---|---:|---:|
+| 2008 | **+6.2%** | −36.2% |
+| 2020 | −3.8% | +17.2% |
+| 2022 | −17.4% | −18.7% |
+| Full 2007–2026 | +310.7% | +670.6% |
 
-The original Antonacci results cover a different, longer sample (1972 onward)
-with different US/ex-US/bond behavior. This backtest should not be read as a
-refutation of the framework, but it also does not reproduce the historical
-premium.
+GEM did its job in the GFC: it moved to bonds in June 2008, avoided most of the
+equity crash, and kept the maximum drawdown to −32.8% versus −55.2% for SPY.
+It still underperformed SPY on total return because:
+
+- 2010 onward was a persistent US large-cap bull market; ex-US equity and
+  bond sleeves lagged.
+- GEM's absolute filter reacts at month-end, so it did not avoid the fast COVID
+  crash; it held equities into March 2020 and then sold after the fall.
+- Defensive bonds did not protect in 2022.
+
+This is a risk-control result, not a return-maximization result. It is also the
+first strategy in this project that stays positive across the full sample and
+the stress matrix.
+
+## Sensitivity
+
+All variants are positive over 2007–2026, so the sign is not a single-parameter
+artifact. OOS is the final 20% (2022-11 → 2026-10).
+
+| Variant | Return | CAGR | Sharpe | Max DD | OOS | OOS Sharpe |
+|---|---:|---:|---:|---:|---:|---:|
+| Lookback 6m | +215.8% | 5.98% | 0.48 | −32.8% | +88.5% | 1.28 |
+| Lookback 9m | +156.5% | 4.87% | 0.40 | −32.8% | +86.1% | 1.18 |
+| Lookback 12m (default) | **+310.7%** | **7.39%** | **0.55** | **−32.8%** | **+79.3%** | **1.08** |
+| Lookback 15m | +381.0% | 8.25% | 0.59 | −32.8% | +62.5% | 0.92 |
+| Top 2 risk assets | +241.0% | 6.39% | 0.50 | −33.5% | +79.5% | 1.20 |
+| Absolute hurdle = 0 (no BIL) | +337.3% | 7.74% | 0.56 | −32.8% | +89.0% | 1.16 |
+| Defensive = BIL | +168.6% | 5.12% | 0.44 | −32.5% | +76.7% | 1.01 |
+
+The 12-month lookback is not the best on this sample; the 15-month variant
+returned more. Do not select it from this table: that would fit the sample. The
+point is that every reasonable variant is positive and keeps drawdown near
+−33%.
 
 ## Stress
 
-The stress harness was also run on this config. Because the sample starts in
-2010, its final 20% OOS window is **2023-04 → 2026-10**, not the 2025-06 window
-used for the ETF strategies.
+Stress scenarios on the 2007–2026 data. The final 20% OOS window is
+**2022-11 → 2026-10**, not the 2025-06 window used for the ETF strategies.
 
 | Scenario | Full return | Sharpe | OOS return | Sharpe | Fills |
 |---|---:|---:|---:|---:|---:|
-| Baseline | +220.8% | 0.54 | +72.3% | 1.12 | 218 |
-| Spread ×3 | +217.7% | 0.53 | +71.8% | 1.11 | 218 |
-| Borrow 3% | +220.8% | 0.54 | +72.3% | 1.12 | 218 |
-| Delay +1 bar | +239.6% | 0.56 | +67.2% | 1.06 | 218 |
-| Participation 0.01% | +189.6% | 0.48 | +66.7% | 1.05 | 602 |
-| Capacity $5M | +335.3% | 0.66 | +69.2% | 1.09 | 1,612 |
-| ×3 spread + 3% borrow + delay | +236.3% | 0.55 | +66.7% | 1.06 | 218 |
+| Baseline | +310.7% | 0.55 | +79.3% | 1.08 | 252 |
+| Spread ×3 | +306.4% | 0.54 | +78.6% | 1.07 | 252 |
+| Borrow 3% | +310.7% | 0.55 | +79.3% | 1.08 | 252 |
+| Delay +1 bar | +327.9% | 0.56 | +79.3% | 1.08 | 252 |
+| Participation 0.01% | +260.3% | 0.49 | +75.1% | 1.03 | 874 |
+| Capacity $5M | +511.6% | 0.74 | +72.2% | 1.04 | 2,488 |
+| ×3 spread + 3% borrow + delay | +323.4% | 0.56 | +78.6% | 1.07 | 252 |
 
 Monthly rebalancing keeps turnover low, so spread and borrow shocks barely
 matter; borrow is zero because the strategy is long-only. The 0.01%
 participation cap does bite, and the $5M path differs because partial fills
-change the entry prices. The OOS result is strong in 2023–2026, but that is a
-favorable period for both US and ex-US equities; it does not change the
-full-sample comparison with SPY.
+change the entry prices. Every scenario remains positive.
 
 See `docs/stress-testing.md` for the levers and the other strategies.
 
@@ -151,7 +175,11 @@ See `docs/stress-testing.md` for the levers and the other strategies.
 - No shorting, leverage or volatility targeting.
 - The signal uses month-end closes derived from daily bars; missing month-end
   data reduces the candidate set.
-- The sample universe is today's ETF list, with survivorship bias.
+- The sample starts in 2007 because VEU and BIL did not exist earlier. Extending
+  it to the 1970s requires index or mutual-fund data.
+- The universe is four broad asset classes rather than a cross-section of
+  sector ETFs, so cross-sectional survivorship bias is much smaller. The four
+  funds are still current choices made with hindsight.
 - Spreads are static per symbol unless a time-series table is supplied.
 - A 2–3% cash sleeve is held for the risk engine's buying-power buffer.
 - This is a research implementation; it is not a recommendation.

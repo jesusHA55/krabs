@@ -342,7 +342,7 @@ A long-only Gary Antonacci dual-momentum implementation (SPY / VEU / AGG, with
 a BIL absolute filter) is also included:
 
 ```bash
-python3 scripts/fetch_sample_data.py --only dual_momentum --start 2010-01-01
+python3 scripts/fetch_sample_data.py --only dual_momentum --start 2007-01-01
 ./krabs backtest -c configs/dual-momentum.toml
 ```
 

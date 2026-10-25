@@ -1,5 +1,5 @@
 # Gary Antonacci dual momentum (GEM): SPY / VEU / AGG, absolute filter vs BIL.
-# Data: python3 scripts/fetch_sample_data.py --only dual_momentum --start 2010-01-01
+# Data: python3 scripts/fetch_sample_data.py --only dual_momentum --start 2007-01-01
 #
 #   ./krabs backtest -c configs/dual-momentum.toml
 

@@ -1,9 +1,9 @@
 {
   "source": "Yahoo Finance chart API (daily bars)",
   "adjusted": true,
-  "generated_at": "2026-10-25T10:41:44+00:00",
+  "generated_at": "2026-10-25T11:13:28+00:00",
   "range": {
-    "start": "2010-01-01",
+    "start": "2007-01-01",
     "end": "2026-10-24"
   },
   "timeframe": "1Day",
@@ -232,9 +232,9 @@
         "AGG",
         "BIL"
       ],
-      "rows": 16912,
+      "rows": 19791,
       "range": {
-        "start": "2010-01-01",
+        "start": "2007-01-01",
         "end": "2026-10-24"
       }
     }
