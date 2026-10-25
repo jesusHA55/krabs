@@ -347,7 +347,9 @@ python3 scripts/fetch_sample_data.py --only dual_momentum --start 2007-01-01
 ```
 
 See **[docs/dual-momentum.md](docs/dual-momentum.md)** for the rules, parameters
-and the honest benchmark comparison.
+and the honest benchmark comparison. It is the first entry in the
+**[strategy bank](docs/strategy-bank.md)** at `research-approved` status — not
+yet paper- or live-approved.
 
 Stress the same strategies with wider spreads, borrow costs, extra execution
 delay and participation caps:
