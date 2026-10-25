@@ -1,0 +1,20 @@
+[Unit]
+Description=Krabs broker-paper for Larry slow loop
+After=network-online.target time-sync.target
+Wants=network-online.target time-sync.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/jesus/Escritorio/Projects/Krabs
+Environment=PYTHONPATH=/home/jesus/Escritorio/Projects/Krabs/src
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=/home/jesus/Escritorio/Projects/Larry/larry.env
+ExecStart=/home/jesus/Escritorio/Projects/Krabs/krabs broker-paper -c configs/larry-paper.toml
+KillSignal=SIGTERM
+KillMode=mixed
+TimeoutStopSec=45
+Restart=on-failure
+RestartSec=15
+
+[Install]
+WantedBy=default.target

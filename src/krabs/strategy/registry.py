@@ -65,4 +65,4 @@ def coerce_params(name: str, raw: dict[str, str]) -> dict[str, Any]:
 
 def load_builtin() -> None:
     """Import bundled strategies so registration happens as a side effect."""
-    from .examples import buy_hold, dual_momentum, leveraged_trend, overnight_drift, pca_residual, rsi_reversion, sma_cross  # noqa: F401
+    from .examples import buy_hold, dual_momentum, larry, leveraged_trend, overnight_drift, pca_residual, rsi_reversion, sma_cross  # noqa: F401

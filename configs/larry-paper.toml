@@ -1,0 +1,81 @@
+# Larry slow-loop paper account.
+#
+# Larry writes the target file after the US close. Krabs applies it at the next
+# session open. This config is for the $1k Alpaca paper account.
+#
+#   ./krabs broker-paper -c configs/larry-paper.toml
+# or local simulated fills:
+#   ./krabs paper -c configs/larry-paper.toml
+
+[app]
+name = "krabs-larry"
+mode = "paper"
+data_dir = "var"
+log_level = "INFO"
+log_json = true
+
+[market]
+symbols = ["SPY", "SSO", "BIL"]
+timeframe = "5Min"
+history_days = 10
+enforce_market_hours = true
+
+[wallet]
+starting_cash = 1000.0
+currency = "USD"
+allow_short = false
+margin_multiplier = 1.0
+fractional = true
+
+[execution]
+slippage_bps = 1.0
+half_spread_bps = 1.5
+commission_per_share = 0.0
+min_commission = 0.0
+max_participation = 0.25
+impact_coefficient_bps = 0.0
+allow_partial_fills = true
+
+[risk]
+max_order_notional = 550.0
+max_position_pct = 0.55
+max_gross_exposure_pct = 0.95
+max_daily_loss_pct = 0.02
+max_open_orders = 10
+max_data_age_s = 300
+price_collar_pct = 0.05
+duplicate_window_s = 60
+allowed_symbols = []
+
+[broker]
+provider = "alpaca"
+paper = true
+base_url = ""
+data_url = "https://data.alpaca.markets"
+api_key_env = "ALPACA_API_KEY"
+api_secret_env = "ALPACA_SECRET_KEY"
+
+[feed]
+provider = "alpaca"
+poll_seconds = 10.0
+warmup_bars = 100
+alpaca_feed = "iex"
+offline = false
+
+[storage]
+enabled = true
+path = "var/krabs.db"
+
+[backtest]
+report_dir = "reports"
+
+[strategy]
+name = "larry"
+
+[strategy.params]
+source = "../Larry/data/processed/larry-targets.json"
+format = "json"
+allocation = 1.0
+max_age_days = 5
+drift_band = 0.01
+fail_closed = true

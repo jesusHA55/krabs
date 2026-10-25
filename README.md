@@ -471,6 +471,17 @@ Drop it in `src/krabs/strategy/examples/`, register the import in
 `examples/__init__.py`, and it appears in `krabs strategies`. Guide:
 **[docs/strategy-authoring.md](docs/strategy-authoring.md)**.
 
+## Larry paper integration
+
+Krabs can consume Larry's expiring target-weight file without giving Larry broker
+access. The slow-loop v0 config is `configs/larry-paper.toml` and the adapter is
+the `larry` strategy. See **[docs/larry-paper.md](docs/larry-paper.md)**.
+
+```bash
+set -a; . ../Larry/larry.env; set +a
+./krabs broker-paper -c configs/larry-paper.toml
+```
+
 ---
 
 ## Optional Rust core
