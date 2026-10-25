@@ -15,7 +15,7 @@ log_level = "INFO"
 log_json = true
 
 [market]
-symbols = ["SPY", "SSO", "BIL"]
+symbols = ["ASHR", "BIL", "DBC", "DIA", "EEM", "EFA", "EIDO", "EPOL", "EWA", "EWC", "EWG", "EWH", "EWJ", "EWS", "EWT", "EWU", "EWW", "EWY", "EWZ", "FEZ", "FXI", "GLD", "HYG", "IEF", "INDA", "IWM", "KWEB", "LQD", "MCHI", "MDY", "QQQ", "RSP", "SHY", "SLV", "SPY", "SSO", "THD", "TIP", "TLT", "TUR", "UUP", "VB", "VBR", "VGK", "VTV", "VUG", "VV", "XLB", "XLC", "XLE", "XLF", "XLI", "XLK", "XLP", "XLRE", "XLU", "XLV", "XLY"]
 timeframe = "5Min"
 history_days = 10
 enforce_market_hours = true
@@ -57,7 +57,7 @@ api_secret_env = "ALPACA_SECRET_KEY"
 
 [feed]
 provider = "alpaca"
-poll_seconds = 10.0
+poll_seconds = 30.0
 warmup_bars = 100
 alpaca_feed = "iex"
 offline = false

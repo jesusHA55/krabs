@@ -1,5 +1,5 @@
 [Unit]
-Description=Krabs broker-paper for Larry slow loop
+Description=Krabs broker-paper for Larry slow+medium
 After=network-online.target time-sync.target
 Wants=network-online.target time-sync.target
 

@@ -474,8 +474,9 @@ Drop it in `src/krabs/strategy/examples/`, register the import in
 ## Larry paper integration
 
 Krabs can consume Larry's expiring target-weight file without giving Larry broker
-access. The slow-loop v0 config is `configs/larry-paper.toml` and the adapter is
-the `larry` strategy. See **[docs/larry-paper.md](docs/larry-paper.md)**.
+access. `configs/larry-paper.toml` carries the slow + medium paper targets and
+the adapter is the `larry` strategy. See
+**[docs/larry-paper.md](docs/larry-paper.md)**.
 
 ```bash
 set -a; . ../Larry/larry.env; set +a

@@ -10,9 +10,10 @@ the normal risk engine. Larry has no broker credentials.
 
 - mode: `broker-paper` when invoked with that command; `paper` for local
   simulated fills;
-- symbols: `SPY`, `SSO`, `BIL`;
+- symbols: the full Larry medium universe plus `SPY`, `SSO`, `BIL` (58 symbols);
 - timeframe: `5Min`;
 - account: **$1k Alpaca paper**;
+- sleeves: slow 50% and medium 35% (scaled by regime);
 - strategy: `larry`;
 - source: `../Larry/data/processed/larry-targets.json`;
 - max age: 5 calendar days;
@@ -23,9 +24,17 @@ the normal risk engine. Larry has no broker credentials.
 ```json
 {
   "as_of": "2026-10-23",
-  "targets": {"BIL": 0.5}
+  "targets": {
+    "BIL": 0.5,
+    "DBC": 0.0875,
+    "XLE": 0.0875,
+    "EWZ": 0.0875
+  }
 }
 ```
+
+The slow and medium targets are combined in one file. Medium adds up to four
+ETF weights on a weekly rebalance; slow contributes SSO/SPY/BIL at 50%.
 
 Historical backtests can use `{"rows": [...]}` or CSV. A single "latest" file is
 for paper only; using it against historical bars would be look-ahead.
