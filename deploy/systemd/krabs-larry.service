@@ -5,11 +5,9 @@ Wants=network-online.target time-sync.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/jesus/Escritorio/Projects/Krabs
-Environment=PYTHONPATH=/home/jesus/Escritorio/Projects/Krabs/src
+WorkingDirectory=%h/Krabs
 Environment=PYTHONUNBUFFERED=1
-EnvironmentFile=/home/jesus/Escritorio/Projects/Larry/larry.env
-ExecStart=/home/jesus/Escritorio/Projects/Krabs/krabs broker-paper -c configs/larry-paper.toml
+ExecStart=%h/Krabs/scripts/run_broker_paper.sh
 KillSignal=SIGTERM
 KillMode=mixed
 TimeoutStopSec=45
