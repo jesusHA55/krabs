@@ -372,6 +372,19 @@ python3 scripts/fetch_intraday_sample.py --range 60d
 See **[docs/overnight-drift.md](docs/overnight-drift.md)** for the daily
 close-to-open study, costs and the execution caveat.
 
+A public-data event study for the "Trump index" idea is included as research,
+not a banked strategy: Truth Social post archive + Kalshi market probabilities +
+sector ETF abnormal returns.
+
+```bash
+python3 scripts/download_truth_archive.py
+python3 scripts/trump_event_study.py
+python3 scripts/trump_prediction_study.py
+```
+
+See **[docs/trump-index.md](docs/trump-index.md)**. No whale data, no
+non-public information, and no live trading.
+
 Stress the same strategies with wider spreads, borrow costs, extra execution
 delay and participation caps:
 

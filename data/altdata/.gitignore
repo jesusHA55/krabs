@@ -1,0 +1,4 @@
+# Public archive downloads are large; fetch with scripts/trump_event_study.py.
+*.csv
+*.json
+*.parquet
