@@ -1,0 +1,33 @@
+symbol,name,listed,delisted,cluster,source
+XLK,Technology Select Sector SPDR,1998-12-16,,technology,approximate
+SMH,VanEck Semiconductor ETF,2000-05-05,,technology,approximate
+IGV,iShares Expanded Tech-Software Sector ETF,2001-07-10,,technology,approximate
+VGT,Vanguard Information Technology ETF,2004-01-26,,technology,approximate
+XLF,Financial Select Sector SPDR,1998-12-16,,financials,approximate
+KBE,SPDR S&P Bank ETF,2005-11-08,,financials,approximate
+KRE,SPDR S&P Regional Banking ETF,2005-11-08,,financials,approximate
+IAI,iShares U.S. Broker-Dealers & Securities Exchanges ETF,2006-05-05,,financials,approximate
+XLV,Health Care Select Sector SPDR,1998-12-16,,health_care,approximate
+XBI,SPDR S&P Biotech ETF,2006-02-06,,health_care,approximate
+IHI,iShares U.S. Medical Devices ETF,2006-05-01,,health_care,approximate
+XPH,SPDR S&P Pharmaceuticals ETF,2006-06-19,,health_care,approximate
+XLE,Energy Select Sector SPDR,1998-12-16,,energy,approximate
+XOP,SPDR S&P Oil & Gas Exploration & Production ETF,2006-06-19,,energy,approximate
+OIH,VanEck Oil Services ETF,2001-02-02,,energy,approximate
+XES,SPDR S&P Oil & Gas Equipment & Services ETF,2006-06-19,,energy,approximate
+XLY,Consumer Discretionary Select Sector SPDR,1998-12-16,,consumer,approximate
+XRT,SPDR S&P Retail ETF,2006-06-19,,consumer,approximate
+XLP,Consumer Staples Select Sector SPDR,1998-12-16,,consumer,approximate
+XLI,Industrial Select Sector SPDR,1998-12-16,,industrials,approximate
+XAR,SPDR S&P Aerospace & Defense ETF,2011-06-01,,industrials,approximate
+ITA,iShares U.S. Aerospace & Defense ETF,2006-05-05,,industrials,approximate
+XLB,Materials Select Sector SPDR,1998-12-16,,materials,approximate
+XME,SPDR S&P Metals & Mining ETF,2006-06-19,,materials,approximate
+GDX,VanEck Gold Miners ETF,2006-05-16,,materials,approximate
+XLU,Utilities Select Sector SPDR,1998-12-16,,utilities,approximate
+VPU,Vanguard Utilities ETF,2007-01-31,,utilities,approximate
+XLRE,Real Estate Select Sector SPDR,2015-10-07,,real_estate,approximate
+IYR,iShares U.S. Real Estate ETF,2000-06-12,,real_estate,approximate
+VNQ,Vanguard Real Estate ETF,2004-09-23,,real_estate,approximate
+XLC,Communication Services Select Sector SPDR,2018-06-18,,communication,approximate
+XTL,SPDR S&P Telecom ETF,2011-06-01,,communication,approximate

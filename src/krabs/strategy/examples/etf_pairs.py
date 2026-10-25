@@ -37,7 +37,7 @@ from ...pearl import (
     Spread,
     screen_pairs,
 )
-from ...spreads import load_spreads
+from ...spreads import SpreadTable, load_spread_table
 from ...strategy.base import Strategy, StrategyContext
 from ..registry import register
 
@@ -149,31 +149,36 @@ class ETFPairs(Strategy):
         self._last_selection: list[PairCandidate] = []
 
     def _load_spreads(self) -> dict[str, float]:
-        """Per-symbol bid/ask in bps: params, then CSV, then the stress multiplier."""
-        spreads = {
+        """Load a static or as-of spread table and expose the latest values."""
+        base = {
             str(symbol).upper(): float(value)
             for symbol, value in dict(self.p("spread_bps") or {}).items()
         }
-        source = "params" if spreads else "default"
+        multiplier = float(self.p("spread_multiplier"))
         spreads_csv = str(self.p("spreads_csv") or "").strip()
         if spreads_csv:
-            loaded = load_spreads(spreads_csv, logger=self.log)
-            if loaded:
-                spreads.update(loaded)
-                source = f"csv:{spreads_csv} ({len(loaded)} symbols)"
-            else:
+            table = load_spread_table(
+                spreads_csv,
+                multiplier=multiplier,
+                base=base,
+                logger=self.log,
+            )
+            if not table:
                 self.log.warning(
                     "no spreads in %s; falling back to configured estimates",
                     spreads_csv,
                 )
-        multiplier = float(self.p("spread_multiplier"))
-        if multiplier != 1.0:
-            spreads = {
-                symbol: value * multiplier for symbol, value in spreads.items()
-            }
-            source += f" x{multiplier:g}"
-        self.spreads_source = source
-        return spreads
+        else:
+            table = SpreadTable(
+                static=base,
+                multiplier=multiplier,
+                source="params" if base else "default",
+            )
+        self.spread_table = table
+        self.spreads_source = table.source + (
+            f" x{multiplier:g}" if multiplier != 1.0 else ""
+        )
+        return table.latest()
 
     def _signal_refs(self) -> tuple[str, str, str]:
         if self.model_name == "local_level":
@@ -191,6 +196,7 @@ class ETFPairs(Strategy):
     # -- lifecycle -------------------------------------------------------
     def on_start(self, ctx: StrategyContext) -> None:
         self.log = logging.getLogger("krabs.strategy.etf_pairs")
+        self.spread_bps = self.spread_table.latest()
         self._bar_index = 0
         self._last_screen = -10**9
         self._active.clear()
@@ -201,6 +207,7 @@ class ETFPairs(Strategy):
         if bar.symbol != self._driver:
             return
         self._bar_index += 1
+        self.spread_bps = self.spread_table.snapshot(bar.ts)
 
         if self._pending:
             self._open_pending(ctx)

@@ -3,14 +3,14 @@ from __future__ import annotations
 import logging
 import tempfile
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from krabs.brokers.paper import FillModel, PaperBroker
 from krabs.clock import SimulatedClock
 from krabs.config import Config, ConfigError
 from krabs.events import Bar, OrderIntent, Side
-from krabs.spreads import load_spreads
+from krabs.spreads import SpreadTable, load_spread_table, load_spreads
 from krabs.wallet import PaperWallet
 
 T0 = datetime(2024, 1, 2, 14, 30, tzinfo=timezone.utc)
@@ -18,6 +18,45 @@ T0 = datetime(2024, 1, 2, 14, 30, tzinfo=timezone.utc)
 
 def make_bar(symbol: str, minute: int, price: float) -> Bar:
     return Bar(symbol, T0 + timedelta(minutes=minute), price, price, price, price, 1_000_000)
+
+
+class SpreadSeriesTests(unittest.TestCase):
+    def test_as_of_lookup_never_uses_the_future(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "series.csv"
+            path.write_text(
+                "date,symbol,spread_bps\n"
+                "2024-01-02,AAA,2.0\n"
+                "2024-02-01,AAA,4.0\n",
+                encoding="utf-8",
+            )
+            table = load_spread_table(path, multiplier=2.0)
+            self.assertIsNone(table.at(date(2024, 1, 1), "AAA"))
+            self.assertAlmostEqual(table.at(date(2024, 1, 15), "AAA"), 4.0)
+            self.assertAlmostEqual(table.at(date(2024, 2, 1), "AAA"), 8.0)
+            self.assertAlmostEqual(table.at(date(2025, 1, 1), "AAA"), 8.0)
+            self.assertAlmostEqual(table.latest()["AAA"], 8.0)
+
+    def test_fill_model_uses_the_series_half_spread(self):
+        from krabs.brokers.paper import FillModel
+
+        table = SpreadTable(
+            series={"AAA": ((date(2024, 1, 2), 40.0),)},
+            multiplier=1.0,
+        )
+        model = FillModel(
+            slippage_bps=0.0,
+            half_spread_bps=1.0,
+            spread_table=table,
+        )
+        self.assertAlmostEqual(
+            model.half_spread_for("AAA", datetime(2024, 1, 1, tzinfo=timezone.utc)),
+            1.0,
+        )
+        self.assertAlmostEqual(
+            model.half_spread_for("AAA", datetime(2024, 1, 2, tzinfo=timezone.utc)),
+            20.0,
+        )
 
 
 class LoadSpreadsTests(unittest.TestCase):

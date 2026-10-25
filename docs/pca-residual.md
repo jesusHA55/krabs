@@ -96,8 +96,9 @@ cannot silently redefine the position; exits use that same fit.
 | `min_hold_bars` | 3 | minimum holding period before a reversion exit |
 | `min_resid_bps` | 5.0 | minimum residual daily volatility |
 | `max_bid_ask_bps` | 5.0 | traded asset liquidity filter |
-| `spreads_csv` | `""` | captured spread table |
+| `spreads_csv` | `""` | static or `date,symbol,spread_bps` as-of table |
 | `spread_multiplier` | 1.0 | stress/test multiplier for the spread table |
+| `max_bid_ask_bps` | 5.0 | traded-asset liquidity filter |
 | `slippage_bps` | 1.0 | cost estimate used by the entry filter |
 
 ## Results
@@ -154,8 +155,9 @@ backtest alpha; check it before trusting a residual strategy.
 - The dense 32-leg hedge produced +3.98% gross but −2.04% net and 297× turnover.
   Sparsifying to six legs and widening the exit band cut turnover to 129×.
 - Survivorship bias: the universe is today's ETF list.
-- Spreads are a static captured snapshot, not a historical time series, and
-  short-borrow costs are not modelled.
+- The bundled spread table is a static snapshot; the loader supports as-of
+  time series, but no real historical series is bundled. Per-symbol borrow
+  rates are supported; availability is audited, not enforced.
 - `max_legs` deliberately trades exact factor neutrality for lower turnover;
   residual factor exposure remains.
 - The component count and hedging horizon are fixed, not cross-validated.

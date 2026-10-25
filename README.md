@@ -348,6 +348,16 @@ python3 scripts/stress.py configs/etf-pairs.toml configs/pca-residual.toml
 See **[docs/stress-testing.md](docs/stress-testing.md)** for the levers and the
 latest matrix.
 
+Audit the data itself (calendar gaps, duplicate bars, price outliers, static
+spreads, borrow coverage, survivorship):
+
+```bash
+python3 scripts/audit_data.py configs/etf-pairs.toml
+```
+
+See **[docs/data-audit.md](docs/data-audit.md)** for the checks, metadata
+formats and current limitations.
+
 ## Dashboard
 
 A mobile-friendly web dashboard reads the heartbeat, audit database, kill switch

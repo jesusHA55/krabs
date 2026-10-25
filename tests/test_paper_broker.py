@@ -48,6 +48,25 @@ class PaperBrokerTests(unittest.TestCase):
         broker.on_event(bar(2, 100, 101, 99, 100))
         self.assertAlmostEqual(wallet.position("AAPL").avg_price, 100.10, places=4)
 
+    def test_impact_scales_with_participation(self):
+        clock = SimulatedClock(T0)
+        wallet = PaperWallet(100_000)
+        broker = PaperBroker(
+            wallet,
+            clock,
+            FillModel(
+                slippage_bps=0,
+                half_spread_bps=0,
+                max_participation=0,
+                impact_coefficient_bps=100,
+            ),
+        )
+        broker.on_event(bar(1, 100, 101, 99, 100, v=1_000))
+        broker.submit(OrderIntent("AAPL", Side.BUY, qty=10))
+        broker.on_event(bar(2, 100, 101, 99, 100, v=1_000))
+        # 10 / 1000 = 1% participation -> 100 * sqrt(0.01) = 10 bps.
+        self.assertAlmostEqual(wallet.position("AAPL").avg_price, 100.10, places=4)
+
     def test_delay_bars_holds_a_market_order_for_extra_bars(self):
         clock = SimulatedClock(T0)
         wallet = PaperWallet(100_000)

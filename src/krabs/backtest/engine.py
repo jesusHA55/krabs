@@ -112,8 +112,10 @@ class BacktestEngine:
                 commission_per_share=cfg.execution.commission_per_share,
                 min_commission=cfg.execution.min_commission,
                 max_participation=cfg.execution.max_participation,
+                impact_coefficient_bps=cfg.execution.impact_coefficient_bps,
                 allow_partial_fills=cfg.execution.allow_partial_fills,
                 spread_bps_by_symbol=cfg.execution.spread_costs(),
+                spread_table=cfg.execution.spread_table(),
             ),
             delay_bars=cfg.execution.delay_bars,
             run_id=self.run_id,
@@ -138,6 +140,7 @@ class BacktestEngine:
         self._last_event_ts: datetime | None = None
         self._ctx: StrategyContext | None = None
         self._borrow_paid = 0.0
+        self._borrow_rates = cfg.execution.borrow_rates()
 
     # -- public ----------------------------------------------------------
     def run(
@@ -255,7 +258,8 @@ class BacktestEngine:
     def _charge_borrow(self, ts: datetime) -> None:
         """Charge one day of short borrow against the previous close marks."""
         rate = float(self.cfg.execution.borrow_bps_per_year)
-        if rate <= 0:
+        rates = self._borrow_rates
+        if rate <= 0 and not rates:
             return
         prices = {
             symbol: history[-1].close
@@ -265,10 +269,14 @@ class BacktestEngine:
         if not prices:
             return
         self.wallet.mark_all(prices)
-        short_value = abs(self.wallet.snapshot(ts).short_value)
-        if short_value <= 0:
+        amount = 0.0
+        for symbol, position in self.wallet.positions().items():
+            if position.qty >= 0:
+                continue
+            symbol_rate = rates.get(symbol.upper(), rate)
+            amount += abs(position.market_value) * (symbol_rate / 10_000.0) / 252.0
+        if amount <= 0:
             return
-        amount = short_value * (rate / 10_000.0) / 252.0
         charged = self.wallet.charge(amount, ts, "short borrow")
         self._borrow_paid += charged
 

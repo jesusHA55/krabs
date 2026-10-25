@@ -17,7 +17,9 @@ configured warm-up prefix). Results are written to
 | Lever | Config | Effect |
 |---|---|---|
 | Spread multiplier | `execution.spread_multiplier` and the strategy's `spread_multiplier` | Scales the quoted spread used by both the liquidity filter and the paper fill model, so the strategy pays the wider spread it sees |
-| Borrow rate | `execution.borrow_bps_per_year` | Charged daily on short market value and deducted from cash |
+| Borrow rate | `execution.borrow_bps_per_year`, `execution.borrow_bps`, `execution.borrow_csv` | Charged daily on short market value; per-symbol rates override the global rate |
+| Market impact | `execution.impact_coefficient_bps` | Square-root impact: `coeff * sqrt(qty / bar_volume)` added to the fill cost |
+| AUM | `aum` scenario override | Scales starting cash and `max_order_notional`; percentages stay unchanged |
 | Execution delay | `execution.delay_bars` | Holds newly accepted orders for extra bars before they are eligible to fill |
 | Participation | `execution.max_participation` | Caps each fill at a fraction of bar volume; remaining quantity stays open |
 
@@ -36,6 +38,9 @@ unintended gross exposure.
 - `participation_0.01pct`
 - `combo_2x_borrow1_delay1`
 - `combo_3x_borrow3_delay1`
+- `capacity_1m`
+- `capacity_5m`
+- `capacity_5m_combo`
 
 ## Results (config defaults, 2020-01 → 2026-10)
 
@@ -79,6 +84,32 @@ The full-period PCA result is not robust to spreads: at ×2 it falls to +0.70%,
 at ×3 it is flat, and the combined stress is negative. The OOS window stays
 near zero in the baseline and in the combined stress. Delay and participation
 change the path materially, which is sensitivity, not evidence of edge.
+
+## Capacity at realistic AUM
+
+Capacity scenarios scale starting cash, `max_order_notional`, participation and
+impact. They are fresh warm-OOS runs, same dates as above.
+
+### ETF pairs
+
+| Scenario | AUM | Full return | Full Sharpe | OOS return | OOS Sharpe | Fills |
+|---|---:|---:|---:|---:|---:|---:|
+| Capacity | $1M | −1.33% | −0.19 | +0.13% | +0.10 | 580 |
+| Capacity | $5M | −0.43% | −0.06 | +0.37% | +0.28 | 1,463 |
+| Capacity + ×2 spread + 1% borrow + delay | $5M | −1.96% | −0.52 | +1.38% | +1.80 | 308 |
+
+### PCA residual
+
+| Scenario | AUM | Full return | Full Sharpe | OOS return | OOS Sharpe | Fills |
+|---|---:|---:|---:|---:|---:|---:|
+| Capacity | $1M | +9.65% | +0.70 | −0.01% | +0.01 | 5,072 |
+| Capacity | $5M | +3.80% | +0.35 | **−1.97%** | **−0.89** | 3,398 |
+| Capacity + ×2 spread + 1% borrow + delay | $5M | +2.72% | +0.28 | **−0.57%** | **−0.29** | 2,841 |
+
+At $5M the PCA out-of-sample result is clearly negative; the full-period return
+is carried by 2020 and earlier years. The ETF full-period result improves at
+$5M only because partial fills change the trade path, not because capacity is a
+tailwind. There were no risk rejections in these runs.
 
 ## Interpretation rules
 

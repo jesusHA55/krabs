@@ -31,7 +31,7 @@ from ...pearl.estimators.panel import (
     residual_weights,
 )
 from ...pearl.screening import DEFAULT_ETF_CLUSTERS
-from ...spreads import load_spreads
+from ...spreads import SpreadTable, load_spread_table
 from ...strategy.base import Strategy, StrategyContext
 from ..registry import register
 
@@ -137,34 +137,39 @@ class PCAResidual(Strategy):
 
     # -- setup -----------------------------------------------------------
     def _load_spreads(self) -> dict[str, float]:
-        """Per-symbol bid/ask in bps: params, then CSV, then the stress multiplier."""
-        spreads = {
+        base = {
             str(symbol).upper(): float(value)
             for symbol, value in dict(self.p("spread_bps") or {}).items()
         }
-        source = "params" if spreads else "default"
+        multiplier = float(self.p("spread_multiplier"))
         spreads_csv = str(self.p("spreads_csv") or "").strip()
         if spreads_csv:
-            loaded = load_spreads(spreads_csv, logger=self.log)
-            if loaded:
-                spreads.update(loaded)
-                source = f"csv:{spreads_csv} ({len(loaded)} symbols)"
-            else:
+            table = load_spread_table(
+                spreads_csv,
+                multiplier=multiplier,
+                base=base,
+                logger=self.log,
+            )
+            if not table:
                 self.log.warning(
                     "no spreads in %s; falling back to configured estimates",
                     spreads_csv,
                 )
-        multiplier = float(self.p("spread_multiplier"))
-        if multiplier != 1.0:
-            spreads = {
-                symbol: value * multiplier for symbol, value in spreads.items()
-            }
-            source += f" x{multiplier:g}"
-        self.spreads_source = source
-        return spreads
+        else:
+            table = SpreadTable(
+                static=base,
+                multiplier=multiplier,
+                source="params" if base else "default",
+            )
+        self.spread_table = table
+        self.spreads_source = table.source + (
+            f" x{multiplier:g}" if multiplier != 1.0 else ""
+        )
+        return table.latest()
 
     def on_start(self, ctx: StrategyContext) -> None:
         self._bar_index = 0
+        self.spread_bps = self.spread_table.latest()
         self._fit = None
         self._fit_bar = -10**9
         self._signals.clear()
@@ -179,6 +184,7 @@ class PCAResidual(Strategy):
         if bar.symbol != self._driver:
             return
         self._bar_index += 1
+        self.spread_bps = self.spread_table.snapshot(bar.ts)
         panel = self._panel_returns(ctx)
         if panel is None:
             return

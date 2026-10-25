@@ -15,7 +15,7 @@ from dataclasses import asdict, dataclass, field, fields, is_dataclass
 from pathlib import Path
 from typing import Any, get_args, get_origin, get_type_hints
 
-from .spreads import load_spreads
+from .spreads import SpreadTable, load_spread_table
 
 MODES = ("backtest", "paper", "broker-paper", "live")
 TIMEFRAMES = ("1Min", "5Min", "15Min", "30Min", "1Hour", "1Day")
@@ -59,23 +59,49 @@ class ExecutionConfig:
     spreads_csv: str = ""
     spread_multiplier: float = 1.0
     borrow_bps_per_year: float = 0.0
+    borrow_bps: dict[str, float] = field(default_factory=dict)
+    borrow_csv: str = ""
     delay_bars: int = 0
     commission_per_share: float = 0.0
     min_commission: float = 0.0
     max_participation: float = 0.25
+    impact_coefficient_bps: float = 0.0
     allow_partial_fills: bool = True
 
-    def spread_costs(self) -> dict[str, float]:
-        """Full quoted spread per symbol, merging the CSV over inline values."""
-        spreads = {str(k).upper(): float(v) for k, v in self.spread_bps.items()}
+    def spread_table(self) -> SpreadTable:
+        """Static or as-of spread table with inline values as the base."""
+        base = {str(k).upper(): float(v) for k, v in self.spread_bps.items()}
         if self.spreads_csv:
-            spreads.update(load_spreads(self.spreads_csv))
-        if self.spread_multiplier != 1.0:
-            spreads = {
-                symbol: value * self.spread_multiplier
-                for symbol, value in spreads.items()
-            }
-        return spreads
+            return load_spread_table(
+                self.spreads_csv,
+                multiplier=self.spread_multiplier,
+                base=base,
+            )
+        return SpreadTable(
+            static=base,
+            multiplier=self.spread_multiplier,
+            source="params" if base else "default",
+        )
+
+    def spread_costs(self) -> dict[str, float]:
+        """Latest full quoted spread per symbol."""
+        return self.spread_table().latest()
+
+    def borrow_rates(self) -> dict[str, float]:
+        """Annual short-borrow bps per symbol; global rate is the fallback."""
+        rates = {str(k).upper(): float(v) for k, v in self.borrow_bps.items()}
+        if self.borrow_csv:
+            from .borrow import load_borrow_table
+
+            rates.update(
+                {
+                    symbol: item.bps_per_year
+                    for symbol, item in load_borrow_table(
+                        self.borrow_csv, base=rates
+                    ).items()
+                }
+            )
+        return rates
 
 
 @dataclass(slots=True)
@@ -209,6 +235,8 @@ class Config:
             raise ConfigError("execution.borrow_bps_per_year must be >= 0")
         if self.execution.delay_bars < 0:
             raise ConfigError("execution.delay_bars must be >= 0")
+        if self.execution.impact_coefficient_bps < 0:
+            raise ConfigError("execution.impact_coefficient_bps must be >= 0")
         for symbol, bps in self.execution.spread_bps.items():
             if float(bps) < 0:
                 raise ConfigError(f"execution.spread_bps.{symbol} must be >= 0")

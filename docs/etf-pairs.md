@@ -95,8 +95,19 @@ XLK = 1.0
 SMH = 2.0
 ```
 
-`spreads_csv` accepts a `median_spread_bps` (preferred) or `spread_bps`
-column keyed by `symbol`. Generate it with observed quotes:
+`spreads_csv` accepts either the static format (`symbol` plus
+`median_spread_bps`/`spread_bps`) or a time series:
+
+```csv
+date,symbol,spread_bps
+2020-01-02,XLK,1.4
+2020-03-16,XLK,8.2
+```
+
+Time-series lookups are as-of: the most recent value at or before the bar is
+used, never a future one. The strategy refreshes its spread snapshot on the
+driver bar, and the paper broker uses the same table for fill costs. Generate
+the static table with observed quotes:
 
 ```bash
 export ALPACA_API_KEY=...
@@ -111,6 +122,10 @@ credentials (free plans can read older SIP history and real-time IEX, not
 recent SIP). If the file is missing at startup the strategy logs a warning and
 falls back to the configured estimates; `diagnostics()["spreads_source"]`
 records which source was used.
+
+Per-symbol borrow rates can be supplied with
+`execution.borrow_bps` or `execution.borrow_csv`
+(`symbol,borrow_bps_per_year,available`). See `docs/data-audit.md`.
 
 The same table drives simulated transaction costs, so the backtest pays the
 spread it screens on instead of a flat assumption:
@@ -285,8 +300,8 @@ filter.
 - Johansen uses one lag, centered levels and approximate critical values.
 - The pair beta is fixed between screens; the `ou_dynamic` variant adapts it but
   did not improve results in this sample.
-- The default run uses estimated spreads; `spreads_csv` switches to a captured
-  snapshot, but that snapshot is static per symbol rather than a time series.
+- The default run uses estimated spreads; `spreads_csv` accepts a captured
+  snapshot or an as-of time series. The bundled sample is static per symbol.
 - This is an example, not evidence of profitability. It is intentionally
   conservative on liquidity and half-life, so some periods select no pairs.
 - Selecting one pair per cluster avoids leg conflicts; a portfolio allocator that

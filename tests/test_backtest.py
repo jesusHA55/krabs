@@ -124,6 +124,36 @@ class BacktestTests(unittest.TestCase):
             places=2,
         )
 
+    def test_per_symbol_borrow_rate(self):
+        bars = [
+            Bar(
+                "SPY",
+                T0 + timedelta(days=i),
+                100.0,
+                100.0,
+                100.0,
+                100.0,
+                100_000,
+                timeframe="1Day",
+            )
+            for i in range(12)
+        ]
+        borrow_cfg = cfg(
+            market={"symbols": ["SPY"], "timeframe": "1Day"},
+            wallet={"starting_cash": 100_000.0, "allow_short": True},
+            execution={
+                "slippage_bps": 0.0,
+                "half_spread_bps": 0.0,
+                "max_participation": 0.0,
+                "borrow_bps_per_year": 0.0,
+                "borrow_bps": {"SPY": 1000.0},
+            },
+        )
+        result = BacktestEngine(
+            borrow_cfg, ShortHold(), InMemoryFeed(bars), run_id="borrow-symbol"
+        ).run()
+        self.assertGreater(result.metrics["borrow_cost"], 0.0)
+
     def test_warmup_prefills_history_without_trading(self):
         bars = []
         for i in range(150):

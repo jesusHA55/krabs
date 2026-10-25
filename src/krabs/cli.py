@@ -268,8 +268,10 @@ def _fill_model(cfg: Config) -> FillModel:
         commission_per_share=e.commission_per_share,
         min_commission=e.min_commission,
         max_participation=e.max_participation,
+        impact_coefficient_bps=e.impact_coefficient_bps,
         allow_partial_fills=e.allow_partial_fills,
         spread_bps_by_symbol=e.spread_costs(),
+        spread_table=e.spread_table(),
     )
 
 

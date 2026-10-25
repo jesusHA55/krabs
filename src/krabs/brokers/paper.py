@@ -18,12 +18,14 @@ Design notes
 from __future__ import annotations
 
 import logging
+import math
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Callable
 
 from ..clock import Clock
+from ..spreads import SpreadTable
 from ..events import (
     AccountState,
     Bar,
@@ -49,12 +51,18 @@ class FillModel:
     commission_per_share: float = 0.0
     min_commission: float = 0.0
     max_participation: float = 0.25
+    impact_coefficient_bps: float = 0.0
     allow_partial_fills: bool = True
     # Full quoted spread per symbol in bps; half of it is charged per fill.
     # Symbols absent here fall back to ``half_spread_bps`` above.
     spread_bps_by_symbol: dict[str, float] = field(default_factory=dict)
+    spread_table: SpreadTable | None = None
 
-    def half_spread_for(self, symbol: str) -> float:
+    def half_spread_for(self, symbol: str, ts=None) -> float:
+        if self.spread_table is not None:
+            quoted = self.spread_table.at(ts, symbol)
+            if quoted is not None:
+                return quoted / 2.0
         quoted = self.spread_bps_by_symbol.get(symbol.upper())
         return quoted / 2.0 if quoted is not None else self.half_spread_bps
 
@@ -213,7 +221,7 @@ class PaperBroker:
         if intent.type is OrderType.MARKET:
             qty = self._bar_qty(order, bar)
             if qty > 0:
-                self._execute(order, qty, bar.open, bar.ts, slippage=True)
+                self._execute(order, qty, bar.open, bar.ts, slippage=True, volume=bar.volume)
             self._finish_tif(order)
             return
 
@@ -228,14 +236,14 @@ class PaperBroker:
                     price = min(bar.open, stop)
                 qty = self._bar_qty(order, bar)
                 if qty > 0:
-                    self._execute(order, qty, price, bar.ts, slippage=True)
+                    self._execute(order, qty, price, bar.ts, slippage=True, volume=bar.volume)
                 self._finish_tif(order)
                 return
 
         if intent.type is OrderType.STOP and order.triggered:
             qty = self._bar_qty(order, bar)
             if qty > 0:
-                self._execute(order, qty, bar.open, bar.ts, slippage=True)
+                self._execute(order, qty, bar.open, bar.ts, slippage=True, volume=bar.volume)
             self._finish_tif(order)
             return
 
@@ -248,7 +256,7 @@ class PaperBroker:
                 price = min(limit, bar.open) if intent.side is Side.BUY else max(limit, bar.open)
                 qty = self._bar_qty(order, bar)
                 if qty > 0:
-                    self._execute(order, qty, price, bar.ts, slippage=False)
+                    self._execute(order, qty, price, bar.ts, slippage=False, volume=bar.volume)
         self._finish_tif(order)
 
     def _try_fill_quote(self, order: Order, quote: Quote) -> None:
@@ -285,13 +293,18 @@ class PaperBroker:
         ts: datetime,
         *,
         slippage: bool,
+        volume: float = 0.0,
     ) -> None:
         qty = min(qty, order.remaining)
         if qty <= 1e-12:
             return
         if slippage:
-            half = self.fill.half_spread_for(order.symbol)
-            bps = (self.fill.slippage_bps + half) / 10_000.0
+            half = self.fill.half_spread_for(order.symbol, ts)
+            bps = self.fill.slippage_bps + half
+            if self.fill.impact_coefficient_bps > 0 and volume > 0:
+                participation = qty / volume
+                bps += self.fill.impact_coefficient_bps * math.sqrt(max(0.0, participation))
+            bps /= 10_000.0
             price = price * (1.0 + bps) if order.side is Side.BUY else price * (1.0 - bps)
         price = round(price, 4)
         commission = self.fill.commission(qty)

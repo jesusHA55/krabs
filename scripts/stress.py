@@ -52,6 +52,24 @@ SCENARIOS: dict[str, dict] = {
         "borrow_bps_per_year": 300.0,
         "delay_bars": 1,
     },
+    "capacity_1m": {
+        "aum": 1_000_000.0,
+        "max_participation": 0.001,
+        "impact_coefficient_bps": 25.0,
+    },
+    "capacity_5m": {
+        "aum": 5_000_000.0,
+        "max_participation": 0.0005,
+        "impact_coefficient_bps": 50.0,
+    },
+    "capacity_5m_combo": {
+        "aum": 5_000_000.0,
+        "max_participation": 0.0005,
+        "impact_coefficient_bps": 50.0,
+        "spread_multiplier": 2.0,
+        "borrow_bps_per_year": 100.0,
+        "delay_bars": 1,
+    },
 }
 FIELDS = (
     "strategy",
@@ -61,6 +79,7 @@ FIELDS = (
     "sharpe",
     "max_drawdown",
     "fills",
+    "rejections",
     "trades",
     "turnover",
     "exposure",
@@ -80,6 +99,17 @@ def apply_scenario(cfg: Config, overrides: dict) -> Config:
         execution.delay_bars = int(overrides["delay_bars"])
     if "max_participation" in overrides:
         execution.max_participation = float(overrides["max_participation"])
+    if "impact_coefficient_bps" in overrides:
+        execution.impact_coefficient_bps = float(
+            overrides["impact_coefficient_bps"]
+        )
+    if "aum" in overrides:
+        aum = float(overrides["aum"])
+        stressed.wallet.starting_cash = aum
+        stressed.risk.max_order_notional = max(
+            stressed.risk.max_order_notional, aum * 0.25
+        )
+        stressed.risk.max_open_orders = max(stressed.risk.max_open_orders, 100)
     return stressed
 
 
@@ -107,6 +137,7 @@ def run_once(cfg: Config, feed: InMemoryFeed, params: dict, *, start, end, warmu
         "sharpe": finite(metrics.get("sharpe")),
         "max_drawdown": finite(metrics.get("max_drawdown")),
         "fills": len(result.fills),
+        "rejections": len(result.rejections),
         "trades": metrics.get("trades", 0),
         "turnover": finite(metrics.get("turnover")),
         "exposure": finite(metrics.get("exposure")),
@@ -142,8 +173,8 @@ def main(argv: list[str] | None = None) -> int:
             continue
         bars = [
             bar
-            for chunk in CsvFeed(cfg.feed.csv_path, "1Day").bars(
-                cfg.market.symbols, "1Day"
+            for chunk in CsvFeed(cfg.feed.csv_path, cfg.market.timeframe).bars(
+                cfg.market.symbols, cfg.market.timeframe
             )
             for bar in chunk
         ]
@@ -167,7 +198,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(
             f"{'scenario':26} {'full ret':>9} {'full sh':>8} "
-            f"{'oos ret':>9} {'oos sh':>8} {'fills':>7} {'borrow':>10}"
+            f"{'oos ret':>9} {'oos sh':>8} {'fills':>7} {'rej':>5} {'borrow':>10}"
         )
         for name in names:
             overrides = SCENARIOS[name]
@@ -212,7 +243,7 @@ def main(argv: list[str] | None = None) -> int:
             print(
                 f"{name:26} {pct(full['return'])} {num(full['sharpe'])} "
                 f"{pct(oos['return'])} {num(oos['sharpe'])} "
-                f"{full['fills']:7d} "
+                f"{full['fills']:7d} {full['rejections']:5d} "
                 f"{(full['borrow_cost'] if full['borrow_cost'] is not None else 0.0):10.2f}"
             )
 
