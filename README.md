@@ -351,6 +351,17 @@ and the honest benchmark comparison. It is the first entry in the
 **[strategy bank](docs/strategy-bank.md)** at `research-approved` status — not
 yet paper- or live-approved.
 
+An intraday overnight-drift prototype (buy near the close, sell after the next
+open) is included as a `candidate`, not banked:
+
+```bash
+python3 scripts/fetch_intraday_sample.py --range 60d
+./krabs backtest -c configs/overnight-drift.toml
+```
+
+See **[docs/overnight-drift.md](docs/overnight-drift.md)** for the daily
+close-to-open study, costs and the execution caveat.
+
 Stress the same strategies with wider spreads, borrow costs, extra execution
 delay and participation caps:
 

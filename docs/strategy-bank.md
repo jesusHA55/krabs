@@ -8,12 +8,14 @@ entry records its status, evidence and the gates it has not passed yet.
 
 | Status | Meaning |
 |---|---|
+| `candidate` | Implemented and measured, but the evidence is insufficient for the bank |
 | `rejected` | Failed the full-sample, sensitivity or stress tests, or has no economic rationale worth pursuing |
 | `research-approved` | Positive full sample, positive OOS, positive sensitivity and stress; still a research candidate |
 | `paper-approved` | Passed walk-forward and a paper-trading period with the production runtime |
 | `live-approved` | Paper-approved plus operational, risk, monitoring and capital-allocation review |
 
-The current bank has one `research-approved` entry and two `rejected` entries.
+The current bank has one `research-approved` entry, one `candidate` and two
+`rejected` entries.
 
 ## Entry criteria
 
@@ -76,6 +78,20 @@ drawdown than SPY.
   whether it belongs in a sleeve alongside a return-seeking allocation.
 - The universe is four current broad ETFs; earlier history requires index or
   mutual-fund data.
+
+### `overnight_drift` — candidate
+
+Intraday close-to-open prototype: buy at 15:55 ET, sell at 09:35 ET the next
+morning, equal weight across SPY/SMH/XME/XOP.
+
+- Daily study: SPY gross +8.18%/yr but net **+0.62%/yr** after a 3 bps round
+  trip; 20/32 sector ETFs positive, median +1.04%/yr.
+- 60-day 5-minute prototype: −2.39%, 236 round trips, 52.97% win rate,
+  profit factor 0.92. Too short to conclude; execution validated.
+- Not banked: cost-sensitive, 60-day sample, auction fills approximate, no
+  multi-year minute data.
+
+See `docs/overnight-drift.md`.
 
 ### `etf_pairs` (OU) — rejected
 

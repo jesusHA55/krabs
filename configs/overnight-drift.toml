@@ -1,0 +1,77 @@
+# Overnight drift: long near the close, flat after the next open.
+# Needs intraday bars. The bundled sample is a 60-day 5-minute prototype:
+#   python3 scripts/fetch_intraday_sample.py --range 60d
+#
+#   ./krabs backtest -c configs/overnight-drift.toml
+
+[app]
+name = "krabs"
+mode = "backtest"
+data_dir = "var"
+log_level = "INFO"
+log_json = false
+
+[market]
+symbols = ["SPY", "SMH", "XME", "XOP"]
+timeframe = "5Min"
+history_days = 5
+enforce_market_hours = true
+
+[wallet]
+starting_cash = 100000.0
+currency = "USD"
+allow_short = false
+margin_multiplier = 1.0
+fractional = true
+
+[execution]
+slippage_bps = 1.0
+half_spread_bps = 1.0
+commission_per_share = 0.0
+min_commission = 0.0
+max_participation = 0.0
+impact_coefficient_bps = 0.0
+allow_partial_fills = true
+
+[execution.spread_bps]
+SPY = 1.0
+SMH = 3.2
+XME = 4.5
+XOP = 4.1
+
+[risk]
+max_order_notional = 100000.0
+max_position_pct = 0.30
+max_gross_exposure_pct = 1.0
+max_daily_loss_pct = 0.10
+max_open_orders = 20
+max_data_age_s = 0
+price_collar_pct = 0.10
+duplicate_window_s = 0
+allowed_symbols = []
+
+[broker]
+provider = "paper"
+paper = true
+
+[feed]
+provider = "csv"
+csv_path = "data/samples/overnight_5m.csv"
+poll_seconds = 5.0
+warmup_bars = 100
+
+[storage]
+enabled = false
+path = "var/krabs.db"
+
+[backtest]
+report_dir = "reports"
+
+[strategy]
+name = "overnight_drift"
+
+[strategy.params]
+symbols = ["SPY", "SMH", "XME", "XOP"]
+allocation = 0.97
+entry_time = "15:55"
+exit_time = "09:35"
