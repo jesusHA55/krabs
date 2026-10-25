@@ -1,0 +1,80 @@
+# Gary Antonacci dual momentum (GEM): SPY / VEU / AGG, absolute filter vs BIL.
+# Data: python3 scripts/fetch_sample_data.py --only dual_momentum --start 2010-01-01
+#
+#   ./krabs backtest -c configs/dual-momentum.toml
+
+[app]
+name = "krabs"
+mode = "backtest"
+data_dir = "var"
+log_level = "INFO"
+log_json = false
+
+[market]
+symbols = ["SPY", "VEU", "AGG", "BIL"]
+timeframe = "1Day"
+history_days = 500
+enforce_market_hours = true
+
+[wallet]
+starting_cash = 100000.0
+currency = "USD"
+allow_short = false
+margin_multiplier = 1.0
+fractional = true
+
+[execution]
+slippage_bps = 1.0
+half_spread_bps = 1.0
+commission_per_share = 0.0
+min_commission = 0.0
+max_participation = 0.0
+impact_coefficient_bps = 0.0
+allow_partial_fills = true
+
+[execution.spread_bps]
+SPY = 1.0
+VEU = 3.0
+AGG = 1.5
+BIL = 1.0
+
+[risk]
+max_order_notional = 1000000.0
+max_position_pct = 1.0
+max_gross_exposure_pct = 1.0
+max_daily_loss_pct = 0.10
+max_open_orders = 10
+max_data_age_s = 0
+price_collar_pct = 0.10
+duplicate_window_s = 0
+allowed_symbols = []
+
+[broker]
+provider = "paper"
+paper = true
+
+[feed]
+provider = "csv"
+csv_path = "data/samples/dual_momentum.csv"
+poll_seconds = 5.0
+warmup_bars = 400
+
+[storage]
+enabled = false
+path = "var/krabs.db"
+
+[backtest]
+report_dir = "reports"
+
+[strategy]
+name = "dual_momentum"
+
+[strategy.params]
+risk_assets = ["SPY", "VEU"]
+defensive_asset = "AGG"
+absolute_asset = "BIL"
+absolute_threshold = 0.0
+lookback_months = 12
+top_n = 1
+allocation = 0.97
+driver = "SPY"

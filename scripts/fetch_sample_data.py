@@ -66,6 +66,7 @@ ETF_CLUSTERS: dict[str, list[str]] = {
     "communication": ["XLC", "XTL"],
 }
 ETF_GROUP = ("etf_sectors", "Sector & industry ETFs", [s for group in ETF_CLUSTERS.values() for s in group])
+DUAL_MOMENTUM = ("dual_momentum", "Dual-momentum ETFs", ["SPY", "VEU", "AGG", "BIL"])
 
 
 def fetch(symbol: str, start: int, end: int, *, adjusted: bool) -> list[tuple]:
@@ -153,6 +154,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--end", default=datetime.now(UTC).date().isoformat())
     parser.add_argument("--raw", action="store_true", help="unadjusted OHLC (no dividends/splits)")
     parser.add_argument("--delay", type=float, default=0.7, help="seconds between symbols")
+    parser.add_argument(
+        "--only",
+        nargs="+",
+        help="limit to group keys (benchmark, etf_sectors, dual_momentum, ...)",
+    )
     args = parser.parse_args(argv)
 
     start = int(datetime.fromisoformat(args.start).replace(tzinfo=UTC).timestamp())
@@ -163,6 +169,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     out_dir = Path(args.out)
     adjusted = not args.raw
+    existing_manifest: dict | None = None
+    manifest_path = out_dir / "manifest.json"
+    if args.only and manifest_path.is_file():
+        try:
+            existing_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            existing_manifest = None
 
     manifest = {
         "source": "Yahoo Finance chart API (daily bars)",
@@ -183,6 +196,9 @@ def main(argv: list[str] | None = None) -> int:
     groups = dict(SECTORS)
     groups[BENCHMARK[0]] = (BENCHMARK[1], BENCHMARK[2])
     groups[ETF_GROUP[0]] = (ETF_GROUP[1], ETF_GROUP[2])
+    groups[DUAL_MOMENTUM[0]] = (DUAL_MOMENTUM[1], DUAL_MOMENTUM[2])
+    if args.only:
+        groups = {key: value for key, value in groups.items() if key in set(args.only)}
     total_rows = 0
     total_symbols = 0
 
@@ -211,10 +227,16 @@ def main(argv: list[str] | None = None) -> int:
             "file": path.name,
             "symbols": loaded,
             "rows": count,
+            "range": {"start": args.start, "end": args.end},
         }
         print(f"{name}: {path} ({count:,} rows)")
 
-    (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    if existing_manifest:
+        manifest["sectors"] = {
+            **existing_manifest.get("sectors", {}),
+            **manifest["sectors"],
+        }
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     print(f"\n{total_symbols} symbols, {total_rows:,} rows -> {out_dir}")
     if manifest["failures"]:
         print(f"{len(manifest['failures'])} symbol(s) failed; see manifest.json")

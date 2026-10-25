@@ -338,6 +338,17 @@ and cost-aware entries:
 See **[docs/pca-residual.md](docs/pca-residual.md)** for the model, portfolio
 construction and results.
 
+A long-only Gary Antonacci dual-momentum implementation (SPY / VEU / AGG, with
+a BIL absolute filter) is also included:
+
+```bash
+python3 scripts/fetch_sample_data.py --only dual_momentum --start 2010-01-01
+./krabs backtest -c configs/dual-momentum.toml
+```
+
+See **[docs/dual-momentum.md](docs/dual-momentum.md)** for the rules, parameters
+and the honest benchmark comparison.
+
 Stress the same strategies with wider spreads, borrow costs, extra execution
 delay and participation caps:
 

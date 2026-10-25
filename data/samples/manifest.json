@@ -1,9 +1,9 @@
 {
   "source": "Yahoo Finance chart API (daily bars)",
   "adjusted": true,
-  "generated_at": "2026-10-24T22:12:41+00:00",
+  "generated_at": "2026-10-25T10:41:44+00:00",
   "range": {
-    "start": "2020-01-01",
+    "start": "2010-01-01",
     "end": "2026-10-24"
   },
   "timeframe": "1Day",
@@ -22,7 +22,11 @@
         "MSFT",
         "NVDA"
       ],
-      "rows": 5136
+      "rows": 5136,
+      "range": {
+        "start": "2020-01-01",
+        "end": "2026-10-24"
+      }
     },
     "financials": {
       "name": "Financials",
@@ -32,7 +36,11 @@
         "BAC",
         "GS"
       ],
-      "rows": 5136
+      "rows": 5136,
+      "range": {
+        "start": "2020-01-01",
+        "end": "2026-10-24"
+      }
     },
     "health_care": {
       "name": "Health Care",
@@ -42,7 +50,11 @@
         "UNH",
         "PFE"
       ],
-      "rows": 5136
+      "rows": 5136,
+      "range": {
+        "start": "2020-01-01",
+        "end": "2026-10-24"
+      }
     },
     "consumer_discretionary": {
       "name": "Consumer Discretionary",
@@ -52,7 +64,11 @@
         "TSLA",
         "HD"
       ],
-      "rows": 5136
+      "rows": 5136,
+      "range": {
+        "start": "2020-01-01",
+        "end": "2026-10-24"
+      }
     },
     "consumer_staples": {
       "name": "Consumer Staples",
@@ -62,7 +78,11 @@
         "KO",
         "WMT"
       ],
-      "rows": 5136
+      "rows": 5136,
+      "range": {
+        "start": "2020-01-01",
+        "end": "2026-10-24"
+      }
     },
     "energy": {
       "name": "Energy",
@@ -72,7 +92,11 @@
         "CVX",
         "COP"
       ],
-      "rows": 5136
+      "rows": 5136,
+      "range": {
+        "start": "2020-01-01",
+        "end": "2026-10-24"
+      }
     },
     "industrials": {
       "name": "Industrials",
@@ -82,7 +106,11 @@
         "UNP",
         "HON"
       ],
-      "rows": 5136
+      "rows": 5136,
+      "range": {
+        "start": "2020-01-01",
+        "end": "2026-10-24"
+      }
     },
     "materials": {
       "name": "Materials",
@@ -92,7 +120,11 @@
         "SHW",
         "FCX"
       ],
-      "rows": 5136
+      "rows": 5136,
+      "range": {
+        "start": "2020-01-01",
+        "end": "2026-10-24"
+      }
     },
     "utilities": {
       "name": "Utilities",
@@ -102,7 +134,11 @@
         "DUK",
         "SO"
       ],
-      "rows": 5136
+      "rows": 5136,
+      "range": {
+        "start": "2020-01-01",
+        "end": "2026-10-24"
+      }
     },
     "real_estate": {
       "name": "Real Estate",
@@ -112,7 +148,11 @@
         "AMT",
         "SPG"
       ],
-      "rows": 5136
+      "rows": 5136,
+      "range": {
+        "start": "2020-01-01",
+        "end": "2026-10-24"
+      }
     },
     "communication_services": {
       "name": "Communication Services",
@@ -122,7 +162,11 @@
         "META",
         "DIS"
       ],
-      "rows": 5136
+      "rows": 5136,
+      "range": {
+        "start": "2020-01-01",
+        "end": "2026-10-24"
+      }
     },
     "benchmark": {
       "name": "S&P 500 ETF",
@@ -130,7 +174,11 @@
       "symbols": [
         "SPY"
       ],
-      "rows": 1712
+      "rows": 1712,
+      "range": {
+        "start": "2020-01-01",
+        "end": "2026-10-24"
+      }
     },
     "etf_sectors": {
       "name": "Sector & industry ETFs",
@@ -169,7 +217,26 @@
         "XLC",
         "XTL"
       ],
-      "rows": 54784
+      "rows": 54784,
+      "range": {
+        "start": "2020-01-01",
+        "end": "2026-10-24"
+      }
+    },
+    "dual_momentum": {
+      "name": "Dual-momentum ETFs",
+      "file": "dual_momentum.csv",
+      "symbols": [
+        "SPY",
+        "VEU",
+        "AGG",
+        "BIL"
+      ],
+      "rows": 16912,
+      "range": {
+        "start": "2010-01-01",
+        "end": "2026-10-24"
+      }
     }
   },
   "failures": []
