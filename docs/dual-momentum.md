@@ -112,6 +112,31 @@ with different US/ex-US/bond behavior. This backtest should not be read as a
 refutation of the framework, but it also does not reproduce the historical
 premium.
 
+## Stress
+
+The stress harness was also run on this config. Because the sample starts in
+2010, its final 20% OOS window is **2023-04 → 2026-10**, not the 2025-06 window
+used for the ETF strategies.
+
+| Scenario | Full return | Sharpe | OOS return | Sharpe | Fills |
+|---|---:|---:|---:|---:|---:|
+| Baseline | +220.8% | 0.54 | +72.3% | 1.12 | 218 |
+| Spread ×3 | +217.7% | 0.53 | +71.8% | 1.11 | 218 |
+| Borrow 3% | +220.8% | 0.54 | +72.3% | 1.12 | 218 |
+| Delay +1 bar | +239.6% | 0.56 | +67.2% | 1.06 | 218 |
+| Participation 0.01% | +189.6% | 0.48 | +66.7% | 1.05 | 602 |
+| Capacity $5M | +335.3% | 0.66 | +69.2% | 1.09 | 1,612 |
+| ×3 spread + 3% borrow + delay | +236.3% | 0.55 | +66.7% | 1.06 | 218 |
+
+Monthly rebalancing keeps turnover low, so spread and borrow shocks barely
+matter; borrow is zero because the strategy is long-only. The 0.01%
+participation cap does bite, and the $5M path differs because partial fills
+change the entry prices. The OOS result is strong in 2023–2026, but that is a
+favorable period for both US and ex-US equities; it does not change the
+full-sample comparison with SPY.
+
+See `docs/stress-testing.md` for the levers and the other strategies.
+
 ## Variants
 
 - **Sector rotation:** set `risk_assets` to sector ETFs, `top_n` to 2–3,

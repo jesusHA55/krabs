@@ -32,7 +32,7 @@ from krabs.backtest import BacktestEngine  # noqa: E402
 from krabs.config import Config  # noqa: E402
 from krabs.feeds.base import InMemoryFeed  # noqa: E402
 from krabs.feeds.csv import CsvFeed  # noqa: E402
-from krabs.strategy import build, load_builtin  # noqa: E402
+from krabs.strategy import build, get, load_builtin  # noqa: E402
 
 SCENARIOS: dict[str, dict] = {
     "baseline": {},
@@ -204,7 +204,8 @@ def main(argv: list[str] | None = None) -> int:
             overrides = SCENARIOS[name]
             stressed = apply_scenario(cfg, overrides)
             params = dict(stressed.strategy.params)
-            if "spread_multiplier" in overrides:
+            defaults = get(cfg.strategy.name).defaults
+            if "spread_multiplier" in overrides and "spread_multiplier" in defaults:
                 params["spread_multiplier"] = float(overrides["spread_multiplier"])
             stamp = f"{cfg.strategy.name}-{name}"
             full = run_once(
