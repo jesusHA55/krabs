@@ -91,6 +91,37 @@ class StoreTests(unittest.TestCase):
                 self.assertEqual(last["status"], "finished")
                 self.assertEqual(last["strategy"], "buy_hold")
 
+    def test_abort_stale_runs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "krabs.db"
+            with SqliteStore(path) as store:
+                store.start_run(
+                    run_id="old",
+                    mode="paper",
+                    strategy="larry",
+                    params={},
+                    config={},
+                    started_at=NOW,
+                    initial_cash=1000.0,
+                )
+                store.start_run(
+                    run_id="current",
+                    mode="paper",
+                    strategy="larry",
+                    params={},
+                    config={},
+                    started_at=NOW,
+                    initial_cash=1000.0,
+                )
+                aborted = store.abort_stale_runs(exclude_run_id="current")
+                self.assertEqual(aborted, 1)
+                rows = {
+                    row["run_id"]: row["status"]
+                    for row in store._conn.execute("SELECT run_id, status FROM runs")
+                }
+                self.assertEqual(rows["old"], "aborted")
+                self.assertEqual(rows["current"], "running")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -10,7 +10,7 @@ Environment=PYTHONUNBUFFERED=1
 ExecStart=%h/Krabs/scripts/run_broker_paper.sh
 KillSignal=SIGTERM
 KillMode=mixed
-TimeoutStopSec=45
+TimeoutStopSec=90
 Restart=on-failure
 RestartSec=15
 

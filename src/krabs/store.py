@@ -140,6 +140,22 @@ class SqliteStore:
         )
         self._conn.commit()
 
+    def abort_stale_runs(self, *, exclude_run_id: str) -> int:
+        """Mark orphaned ``running`` rows aborted before a new run starts.
+
+        A process killed by an operator or systemd cannot run its shutdown
+        handler. Without this reconciliation the dashboard would keep showing
+        old runs as running forever.
+        """
+        self._conn.commit()
+        cursor = self._conn.execute(
+            "UPDATE runs SET status = 'aborted', finished_at = ? "
+            "WHERE status = 'running' AND run_id != ?",
+            (_iso(datetime.now(timezone.utc)), exclude_run_id),
+        )
+        self._conn.commit()
+        return int(cursor.rowcount)
+
     # -- records ---------------------------------------------------------
     def record_order(self, run_id: str, order: Order) -> None:
         payload = json.dumps(

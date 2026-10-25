@@ -140,6 +140,9 @@ class TradingRuntime:
             self.kill.path,
         )
         if self.store is not None:
+            aborted = self.store.abort_stale_runs(exclude_run_id=self.run_id)
+            if aborted:
+                self.log.warning("marked %d orphaned run(s) as aborted", aborted)
             self.store.start_run(
                 run_id=self.run_id,
                 mode=self.mode,
