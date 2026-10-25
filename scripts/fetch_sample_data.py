@@ -67,6 +67,11 @@ ETF_CLUSTERS: dict[str, list[str]] = {
 }
 ETF_GROUP = ("etf_sectors", "Sector & industry ETFs", [s for group in ETF_CLUSTERS.values() for s in group])
 DUAL_MOMENTUM = ("dual_momentum", "Dual-momentum ETFs", ["SPY", "VEU", "AGG", "BIL"])
+LEVERAGED_TREND = (
+    "leveraged_trend",
+    "Leveraged trend ETFs",
+    ["SPY", "QQQ", "SSO", "UPRO", "QLD", "TQQQ", "BIL"],
+)
 
 
 def fetch(symbol: str, start: int, end: int, *, adjusted: bool) -> list[tuple]:
@@ -197,6 +202,7 @@ def main(argv: list[str] | None = None) -> int:
     groups[BENCHMARK[0]] = (BENCHMARK[1], BENCHMARK[2])
     groups[ETF_GROUP[0]] = (ETF_GROUP[1], ETF_GROUP[2])
     groups[DUAL_MOMENTUM[0]] = (DUAL_MOMENTUM[1], DUAL_MOMENTUM[2])
+    groups[LEVERAGED_TREND[0]] = (LEVERAGED_TREND[1], LEVERAGED_TREND[2])
     if args.only:
         groups = {key: value for key, value in groups.items() if key in set(args.only)}
     total_rows = 0

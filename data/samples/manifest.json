@@ -1,9 +1,9 @@
 {
   "source": "Yahoo Finance chart API (daily bars)",
   "adjusted": true,
-  "generated_at": "2026-10-25T11:13:28+00:00",
+  "generated_at": "2026-10-25T11:46:40+00:00",
   "range": {
-    "start": "2007-01-01",
+    "start": "2010-01-01",
     "end": "2026-10-24"
   },
   "timeframe": "1Day",
@@ -235,6 +235,24 @@
       "rows": 19791,
       "range": {
         "start": "2007-01-01",
+        "end": "2026-10-24"
+      }
+    },
+    "leveraged_trend": {
+      "name": "Leveraged trend ETFs",
+      "file": "leveraged_trend.csv",
+      "symbols": [
+        "SPY",
+        "QQQ",
+        "SSO",
+        "UPRO",
+        "QLD",
+        "TQQQ",
+        "BIL"
+      ],
+      "rows": 29569,
+      "range": {
+        "start": "2010-01-01",
         "end": "2026-10-24"
       }
     }

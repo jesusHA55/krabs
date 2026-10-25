@@ -351,6 +351,16 @@ and the honest benchmark comparison. It is the first entry in the
 **[strategy bank](docs/strategy-bank.md)** at `research-approved` status — not
 yet paper- or live-approved.
 
+A 200-day SMA trend filter for 2x/3x index ETFs is included as a candidate:
+
+```bash
+python3 scripts/fetch_sample_data.py --only leveraged_trend --start 2010-01-01
+./krabs backtest -c configs/leveraged-trend.toml
+```
+
+See **[docs/leveraged-trend.md](docs/leveraged-trend.md)** for the 2x/3x
+variants and the buy-and-hold comparison.
+
 An intraday overnight-drift prototype (buy near the close, sell after the next
 open) is included as a `candidate`, not banked:
 

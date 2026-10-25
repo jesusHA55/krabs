@@ -14,8 +14,8 @@ entry records its status, evidence and the gates it has not passed yet.
 | `paper-approved` | Passed walk-forward and a paper-trading period with the production runtime |
 | `live-approved` | Paper-approved plus operational, risk, monitoring and capital-allocation review |
 
-The current bank has one `research-approved` entry, one `candidate` and two
-`rejected` entries.
+The current bank has one `research-approved` entry, two `candidate` entries and
+two `rejected` entries.
 
 ## Entry criteria
 
@@ -92,6 +92,22 @@ morning, equal weight across SPY/SMH/XME/XOP.
   multi-year minute data.
 
 See `docs/overnight-drift.md`.
+
+### `leveraged_trend` — candidate
+
+200-day SMA filter on 2x/3x index ETFs, monthly, with BIL defensive.
+
+- UPRO/SPY: +1,324%, CAGR 17.13%, Sharpe 0.62, max DD −61.5%.
+- UPRO buy-and-hold: +6,239%, CAGR 29.66%, Sharpe 0.77, max DD −76.8%.
+- TQQQ/QQQ: +5,864%, CAGR 27.55%, Sharpe 0.75, max DD −68.3% vs buy-and-hold
+  39.28%, 0.85, −81.7%.
+- Own-price UPRO signal cuts DD to −45.8% at 16.68% CAGR, but Sharpe remains
+  below buy-and-hold.
+- Stress is positive; the issue is risk-adjusted underperformance, not cost.
+
+Not banked: lower Sharpe than buy-and-hold in every variant, still very large
+3x drawdowns, current-ETF survivorship, and a monthly rule that misses fast
+crashes. See `docs/leveraged-trend.md`.
 
 ### `etf_pairs` (OU) — rejected
 
