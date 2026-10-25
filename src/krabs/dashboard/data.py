@@ -44,6 +44,8 @@ class DashboardData:
         self.reports_dir = Path(reports_dir or cfg.backtest.report_dir)
         self._reports_cache: list[dict[str, Any]] = []
         self._reports_cache_time = 0.0
+        self._research_cache: dict[str, Any] = {"stress": [], "audit": None}
+        self._research_cache_time = 0.0
         self._reports_lock = threading.Lock()
 
     # -- public API ------------------------------------------------------
@@ -65,6 +67,7 @@ class DashboardData:
 
         db = self._read_db(heartbeat, warnings)
         reports = self._read_reports(warnings)
+        research = self._read_research(warnings)
         account = self._account(heartbeat, db)
         positions = self._positions(heartbeat, account)
         health = self._health(age, stale, db, warnings)
@@ -89,6 +92,7 @@ class DashboardData:
             "runs": db["runs"],
             "events": db["events"],
             "reports": reports,
+            "research": research,
             "strategies": [
                 {"id": item.id, "description": item.description, "defaults": item.defaults}
                 for item in describe()
@@ -395,8 +399,8 @@ class DashboardData:
                 return list(self._reports_cache)
             reports: list[dict[str, Any]] = []
             if self.reports_dir.is_dir():
-                candidates = list(self.reports_dir.glob("*/result.json"))
-                candidates += list(self.reports_dir.glob("sweep-*.json"))
+                candidates = list(self.reports_dir.rglob("result.json"))
+                candidates += list(self.reports_dir.rglob("sweep-*.json"))
                 candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
                 for path in candidates[:MAX_REPORTS]:
                     try:
@@ -456,6 +460,78 @@ class DashboardData:
                 "counts": payload.get("counts"),
             }
         return None
+
+    def _read_research(self, warnings: list[str]) -> dict[str, Any]:
+        now = time.monotonic()
+        with self._reports_lock:
+            if now - self._research_cache_time < 5.0:
+                return {
+                    "stress": list(self._research_cache["stress"]),
+                    "audit": self._research_cache["audit"],
+                }
+            stress: list[dict[str, Any]] = []
+            audit: dict[str, Any] | None = None
+            if self.reports_dir.is_dir():
+                seen: set[tuple[str, ...]] = set()
+                for path in sorted(
+                    self.reports_dir.rglob("results.json"),
+                    key=lambda item: item.stat().st_mtime,
+                    reverse=True,
+                ):
+                    if len(stress) >= 3:
+                        break
+                    try:
+                        if path.stat().st_size > 5_000_000:
+                            continue
+                        payload = json.loads(path.read_text(encoding="utf-8"))
+                        if not isinstance(payload, list) or not payload:
+                            continue
+                        if "scenario" not in payload[0] or "period" not in payload[0]:
+                            continue
+                        # Keep the newest run for each distinct scenario set;
+                        # a targeted capacity rerun should not hide the full matrix.
+                        scenario_set = tuple(
+                            sorted({str(row.get("scenario")) for row in payload})
+                        )
+                        if scenario_set in seen:
+                            continue
+                        seen.add(scenario_set)
+                        stress.append(
+                            {
+                                "id": path.parent.name,
+                                "path": str(path.relative_to(self.reports_dir)),
+                                "mtime": datetime.fromtimestamp(
+                                    path.stat().st_mtime, tz=timezone.utc
+                                ).isoformat(),
+                                "rows": payload,
+                                "strategies": sorted(
+                                    {str(row.get("strategy")) for row in payload}
+                                ),
+                            }
+                        )
+                    except (OSError, ValueError) as exc:
+                        warnings.append(f"stress {path.name}: {exc}")
+                for path in sorted(
+                    self.reports_dir.rglob("audit.json"),
+                    key=lambda item: item.stat().st_mtime,
+                    reverse=True,
+                )[:1]:
+                    try:
+                        payload = json.loads(path.read_text(encoding="utf-8"))
+                        if isinstance(payload, dict):
+                            audit = {
+                                "id": path.parent.name,
+                                "path": str(path.relative_to(self.reports_dir)),
+                                "mtime": datetime.fromtimestamp(
+                                    path.stat().st_mtime, tz=timezone.utc
+                                ).isoformat(),
+                                "report": payload,
+                            }
+                    except (OSError, ValueError) as exc:
+                        warnings.append(f"audit {path.name}: {exc}")
+            self._research_cache = {"stress": stress, "audit": audit}
+            self._research_cache_time = now
+            return {"stress": list(stress), "audit": audit}
 
     def read_report(self, relative: str) -> Any:
         """Read one report JSON, restricted to the reports directory."""

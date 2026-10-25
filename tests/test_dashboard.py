@@ -20,6 +20,37 @@ class DashboardDataTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             cfg = _config(tmp)
             _seed(tmp, cfg)
+            stress_dir = Path(cfg.backtest.report_dir) / "stress" / "stress-test"
+            stress_dir.mkdir(parents=True)
+            (stress_dir / "results.json").write_text(
+                json.dumps(
+                    [
+                        {
+                            "strategy": "etf_pairs",
+                            "scenario": "spread_2x",
+                            "period": "full",
+                            "return": 0.01,
+                            "sharpe": 0.2,
+                            "rejections": 0,
+                        },
+                        {
+                            "strategy": "etf_pairs",
+                            "scenario": "spread_2x",
+                            "period": "oos",
+                            "return": -0.02,
+                            "sharpe": -0.1,
+                            "rejections": 0,
+                        },
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            audit_dir = Path(cfg.backtest.report_dir) / "data-audit"
+            audit_dir.mkdir(parents=True)
+            (audit_dir / "audit.json").write_text(
+                json.dumps({"warnings": ["static spreads"], "bars": {"symbols": 1}}),
+                encoding="utf-8",
+            )
             data = DashboardData(cfg)
             snap = data.snapshot()
 
@@ -41,6 +72,8 @@ class DashboardDataTests(unittest.TestCase):
             self.assertTrue(any(s["id"] == "sma_cross" for s in snap["strategies"]))
             types = {r["type"] for r in snap["reports"]}
             self.assertEqual(types, {"backtest", "optimize"})
+            self.assertEqual(snap["research"]["stress"][0]["strategies"], ["etf_pairs"])
+            self.assertEqual(snap["research"]["audit"]["report"]["warnings"], ["static spreads"])
 
     def test_report_path_traversal_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:

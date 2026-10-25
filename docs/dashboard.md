@@ -56,7 +56,8 @@ default 5 s).
 | **Orders** | Latest 50 orders with status, fill quantity, average price and rejection reason |
 | **Fills** | Latest 50 executions with notional and commission |
 | **Runs** | Audit trail: mode, strategy, status, initial/final equity, return |
-| **Reports** | Backtests, optimizations and sweeps, with key metrics and a raw-JSON link |
+| **Reports** | Backtests, optimizations and sweeps, including nested report directories, with key metrics and a raw-JSON link |
+| **Research** | Latest data audit and stress matrix (costs, borrow, delay, capacity), with raw-JSON links |
 | **Risk** | Every configured limit plus the execution model |
 | **Strategies** | Registered strategies, descriptions and default parameters |
 
@@ -166,6 +167,9 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8787/api/health
   replaced; a backtest-only database has no positions.
 - Reports are cached for five seconds; a large `reports/` directory shows the 50
   newest entries.
+- The Research tab shows the newest stress run for each distinct scenario set
+  (up to three), so a targeted capacity run does not hide the full matrix. Audit
+  and stress files are read from `reports/` and never written by the dashboard.
 - One dashboard serves one config. Run another instance on a different port for
   another account/strategy.
 - No service control (start/stop/restart), no order entry, no flatten. Use

@@ -163,6 +163,7 @@ function render() {
   renderFills(snap);
   renderRuns(snap);
   renderReports(snap);
+  renderResearch(snap);
   renderRisk(snap);
   renderExecution(snap);
   renderStrategies(snap);
@@ -531,6 +532,81 @@ function renderReports(snap) {
     </article>`;
   }).join('');
   $('#reports').innerHTML = `<div class="reports">${cards}</div>`;
+}
+
+function renderResearch(snap) {
+  const research = snap.research || {};
+  const audit = research.audit;
+  const auditBox = $('#research-audit');
+  if (!audit) {
+    auditBox.innerHTML = emptyBox(
+      'No audit found. Run <span class="mono">python3 scripts/audit_data.py</span>.'
+    );
+  } else {
+    const report = audit.report || {};
+    const bars = report.bars || {};
+    const spreads = report.spreads || {};
+    const borrow = report.borrow || {};
+    const universe = report.universe || {};
+    const warnings = report.warnings || [];
+    const raw = `/api/report?path=${encodeURIComponent(audit.path)}`;
+    const rows = [
+      ['Bars', `${num(bars.symbols)} symbols · ${num(bars.rows)} rows`],
+      ['Sessions', `${num(bars.timestamps)} (${num(bars.missing_sessions ? Object.keys(bars.missing_sessions).length : 0)} with gaps)`],
+      ['Spreads', spreads.time_varying ? 'time series' : 'static per symbol'],
+      ['Borrow', borrow.symbols ? `${num(borrow.symbols)} symbols` : 'not configured'],
+      ['Universe', `${num(universe.listings)} listings · ${num(universe.delisted)} delisted`],
+    ];
+    auditBox.innerHTML = `
+      <dl class="kv">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
+      ${warnings.length ? `<h3 class="mt">Warnings</h3>${warnings.map((w) => `<div class="alert">${esc(w)}</div>`).join('')}` : '<div class="alert ok">No audit warnings.</div>'}
+      <div class="report-params"><a class="raw" href="${esc(raw)}" target="_blank" rel="noopener">raw JSON</a></div>`;
+  }
+
+  const stressBox = $('#research-stress');
+  const runs = (research.stress || []).slice(0, 2);
+  if (!runs.length) {
+    stressBox.innerHTML = emptyBox(
+      'No stress results found. Run <span class="mono">python3 scripts/stress.py configs/etf-pairs.toml configs/pca-residual.toml</span>.'
+    );
+    return;
+  }
+  stressBox.innerHTML = runs.map((run) => {
+    const raw = `/api/report?path=${encodeURIComponent(run.path)}`;
+    const byStrategy = {};
+    for (const row of run.rows || []) {
+      const key = row.strategy || 'strategy';
+      byStrategy[key] ??= {};
+      byStrategy[key][row.scenario] ??= {};
+      byStrategy[key][row.scenario][row.period] = row;
+    }
+    const tables = Object.entries(byStrategy).map(([strategy, scenarios]) => {
+      const rows = Object.entries(scenarios).map(([scenario, periods]) => {
+        const full = periods.full || {};
+        const oos = periods.oos || {};
+        return [
+          esc(scenario),
+          pct(full.return),
+          num(full.sharpe),
+          pct(oos.return),
+          num(oos.sharpe),
+          full.rejections ?? 0,
+        ];
+      });
+      return `<h3 class="mt">${esc(strategy)}</h3>${table(
+        ['Scenario', 'Full', 'Full SR', 'OOS', 'OOS SR', 'Rej'],
+        rows,
+        'No rows.',
+        ['', 'num', 'num', 'num', 'num', 'num'],
+      )}`;
+    }).join('');
+    return `<div class="stress-run">
+      <div class="muted">${esc(run.id)} · ${esc(timeAgo(run.mtime))} · ${(run.rows || []).length} runs</div>
+      ${tables}
+      <div class="report-params"><a class="raw" href="${esc(raw)}" target="_blank" rel="noopener">raw JSON</a></div>
+    </div>`;
+  }).join('');
+
 }
 
 function renderRisk(snap) {
