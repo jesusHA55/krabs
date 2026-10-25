@@ -75,6 +75,7 @@ class PaperBroker:
         logger: logging.Logger | None = None,
         on_fill: Callable[[Fill], None] | None = None,
         on_order: Callable[[Order], None] | None = None,
+        delay_bars: int = 0,
     ) -> None:
         self.wallet = wallet
         self.clock = clock
@@ -89,6 +90,10 @@ class PaperBroker:
         self._last_price: dict[str, float] = {}
         self._now: datetime = clock.now()
         self._volume_used: dict[tuple[str, datetime], float] = {}
+        self.delay_bars = max(0, int(delay_bars))
+        self._step = 0
+        self._step_ts: datetime | None = None
+        self._eligible: dict[str, int] = {}
 
     # -- execution port ---------------------------------------------------
     def submit(self, intent: OrderIntent) -> Order:
@@ -123,12 +128,14 @@ class PaperBroker:
 
         self._orders[order.client_id] = order
         self._open[order.client_id] = order
+        self._eligible[order.client_id] = self._step + 1 + self.delay_bars
         if self.on_order:
             self.on_order(order)
         return order
 
     def cancel(self, client_id: str) -> bool:
         order = self._open.pop(client_id, None)
+        self._eligible.pop(client_id, None)
         if order is None:
             return False
         order.status = OrderStatus.CANCELED
@@ -161,6 +168,9 @@ class PaperBroker:
     def on_event(self, event: MarketEvent) -> None:
         if event.ts > self._now:
             self._now = event.ts
+        if self._step_ts is None or event.ts != self._step_ts:
+            self._step += 1
+            self._step_ts = event.ts
         self._last_price[event.symbol] = self._event_price(event)
 
         if isinstance(event, Bar):
@@ -173,21 +183,21 @@ class PaperBroker:
     # -- internals --------------------------------------------------------
     def _on_bar(self, bar: Bar) -> None:
         for order in list(self._open.values()):
-            if order.symbol != bar.symbol:
+            if order.symbol != bar.symbol or not self._eligible_now(order):
                 continue
             self._try_fill_bar(order, bar)
         self.wallet.mark(bar.symbol, bar.close)
 
     def _on_quote(self, quote: Quote) -> None:
         for order in list(self._open.values()):
-            if order.symbol != quote.symbol:
+            if order.symbol != quote.symbol or not self._eligible_now(order):
                 continue
             self._try_fill_quote(order, quote)
         self.wallet.mark(quote.symbol, (quote.bid + quote.ask) / 2.0)
 
     def _on_trade(self, trade: Trade) -> None:
         for order in list(self._open.values()):
-            if order.symbol != trade.symbol:
+            if order.symbol != trade.symbol or not self._eligible_now(order):
                 continue
             if order.intent.is_market:
                 self._execute(order, order.remaining, trade.price, trade.ts, slippage=True)
@@ -341,11 +351,15 @@ class PaperBroker:
             return event.high >= stop if intent.side is Side.BUY else event.low <= stop
         return event.ask >= stop if intent.side is Side.BUY else event.bid <= stop
 
+    def _eligible_now(self, order: Order) -> bool:
+        return self._step >= self._eligible.get(order.client_id, 0)
+
     def _finish_tif(self, order: Order) -> None:
         if order.intent.tif in (TimeInForce.IOC, TimeInForce.FOK) and order.remaining > 1e-9:
             order.status = OrderStatus.CANCELED
             order.updated_at = self._now
             self._open.pop(order.client_id, None)
+            self._eligible.pop(order.client_id, None)
             if self.on_order:
                 self.on_order(order)
 
@@ -354,6 +368,7 @@ class PaperBroker:
             if order.status is not OrderStatus.FILLED:
                 order.status = OrderStatus.FILLED
             self._open.pop(order.client_id, None)
+            self._eligible.pop(order.client_id, None)
 
     def _reject(self, order: Order, reason: str) -> Order:
         order.status = OrderStatus.REJECTED

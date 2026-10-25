@@ -74,7 +74,56 @@ def cfg(**overrides) -> Config:
     return Config.from_dict(raw)
 
 
+class ShortHold(Strategy):
+    id = "short_hold"
+    defaults: dict = {}
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.done = False
+
+    def on_bar(self, ctx, bar):
+        if not self.done:
+            ctx.target_weight(bar.symbol, -0.5)
+            self.done = True
+
+
 class BacktestTests(unittest.TestCase):
+    def test_short_borrow_is_charged_daily(self):
+        bars = [
+            Bar(
+                "SPY",
+                T0 + timedelta(days=i),
+                100.0,
+                100.0,
+                100.0,
+                100.0,
+                100_000,
+                timeframe="1Day",
+            )
+            for i in range(12)
+        ]
+        cfg_borrow = cfg(
+            market={"symbols": ["SPY"], "timeframe": "1Day"},
+            wallet={"starting_cash": 100_000.0, "allow_short": True},
+            execution={
+                "slippage_bps": 0.0,
+                "half_spread_bps": 0.0,
+                "max_participation": 0.0,
+                "borrow_bps_per_year": 1000.0,
+            },
+        )
+        result = BacktestEngine(
+            cfg_borrow, ShortHold(), InMemoryFeed(bars), run_id="borrow"
+        ).run()
+        borrow = result.metrics["borrow_cost"]
+        self.assertGreater(borrow, 0.0)
+        self.assertAlmostEqual(
+            result.metrics["final_equity"],
+            100_000.0 - borrow,
+            places=2,
+        )
+
     def test_warmup_prefills_history_without_trading(self):
         bars = []
         for i in range(150):

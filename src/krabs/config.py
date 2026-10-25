@@ -57,6 +57,9 @@ class ExecutionConfig:
     half_spread_bps: float = 1.5
     spread_bps: dict[str, float] = field(default_factory=dict)
     spreads_csv: str = ""
+    spread_multiplier: float = 1.0
+    borrow_bps_per_year: float = 0.0
+    delay_bars: int = 0
     commission_per_share: float = 0.0
     min_commission: float = 0.0
     max_participation: float = 0.25
@@ -67,6 +70,11 @@ class ExecutionConfig:
         spreads = {str(k).upper(): float(v) for k, v in self.spread_bps.items()}
         if self.spreads_csv:
             spreads.update(load_spreads(self.spreads_csv))
+        if self.spread_multiplier != 1.0:
+            spreads = {
+                symbol: value * self.spread_multiplier
+                for symbol, value in spreads.items()
+            }
         return spreads
 
 
@@ -195,6 +203,12 @@ class Config:
             raise ConfigError("risk.max_gross_exposure_pct must be in (0, 10]")
         if self.execution.half_spread_bps < 0 or self.execution.slippage_bps < 0:
             raise ConfigError("execution spread/slippage costs must be >= 0")
+        if self.execution.spread_multiplier <= 0:
+            raise ConfigError("execution.spread_multiplier must be positive")
+        if self.execution.borrow_bps_per_year < 0:
+            raise ConfigError("execution.borrow_bps_per_year must be >= 0")
+        if self.execution.delay_bars < 0:
+            raise ConfigError("execution.delay_bars must be >= 0")
         for symbol, bps in self.execution.spread_bps.items():
             if float(bps) < 0:
                 raise ConfigError(f"execution.spread_bps.{symbol} must be >= 0")

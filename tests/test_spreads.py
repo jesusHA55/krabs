@@ -57,6 +57,17 @@ class ExecutionSpreadCostTests(unittest.TestCase):
             )
             self.assertEqual(cfg.execution.spread_costs(), {"AAA": 5.0, "BBB": 8.0, "CCC": 1.0})
 
+    def test_spread_multiplier_scales_execution_costs(self):
+        cfg = Config.from_dict(
+            {
+                "execution": {
+                    "spread_bps": {"AAA": 3.0},
+                    "spread_multiplier": 2.0,
+                }
+            }
+        )
+        self.assertAlmostEqual(cfg.execution.spread_costs()["AAA"], 6.0)
+
     def test_negative_spread_is_rejected(self):
         with self.assertRaises(ConfigError):
             Config.from_dict({"execution": {"spread_bps": {"AAA": -1.0}}})

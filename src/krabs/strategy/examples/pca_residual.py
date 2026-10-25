@@ -74,6 +74,7 @@ class PCAResidual(Strategy):
         "max_bid_ask_bps": 5.0,
         "default_spread_bps": 2.0,
         "spreads_csv": "",
+        "spread_multiplier": 1.0,
         "spread_bps": {},
         "slippage_bps": 1.0,
         "driver": "",
@@ -118,6 +119,8 @@ class PCAResidual(Strategy):
             raise ValueError("min_hold_bars must be >= 0")
         if int(self.p("max_legs")) < 0:
             raise ValueError("max_legs must be >= 0")
+        if float(self.p("spread_multiplier")) <= 0:
+            raise ValueError("spread_multiplier must be positive")
         if float(self.p("min_resid_bps")) < 0:
             raise ValueError("min_resid_bps must be >= 0")
         self.log = logging.getLogger("krabs.strategy.pca_residual")
@@ -130,23 +133,34 @@ class PCAResidual(Strategy):
         self._last_gross = 0.0
         self._fit_failures = 0
         self._entries = 0
+        self._dirty = False
 
     # -- setup -----------------------------------------------------------
     def _load_spreads(self) -> dict[str, float]:
+        """Per-symbol bid/ask in bps: params, then CSV, then the stress multiplier."""
         spreads = {
             str(symbol).upper(): float(value)
             for symbol, value in dict(self.p("spread_bps") or {}).items()
         }
-        self.spreads_source = "params" if spreads else "default"
+        source = "params" if spreads else "default"
         spreads_csv = str(self.p("spreads_csv") or "").strip()
-        if not spreads_csv:
-            return spreads
-        loaded = load_spreads(spreads_csv, logger=self.log)
-        if not loaded:
-            self.log.warning("no spreads in %s; using configured estimates", spreads_csv)
-            return spreads
-        spreads.update(loaded)
-        self.spreads_source = f"csv:{spreads_csv} ({len(loaded)} symbols)"
+        if spreads_csv:
+            loaded = load_spreads(spreads_csv, logger=self.log)
+            if loaded:
+                spreads.update(loaded)
+                source = f"csv:{spreads_csv} ({len(loaded)} symbols)"
+            else:
+                self.log.warning(
+                    "no spreads in %s; falling back to configured estimates",
+                    spreads_csv,
+                )
+        multiplier = float(self.p("spread_multiplier"))
+        if multiplier != 1.0:
+            spreads = {
+                symbol: value * multiplier for symbol, value in spreads.items()
+            }
+            source += f" x{multiplier:g}"
+        self.spreads_source = source
         return spreads
 
     def on_start(self, ctx: StrategyContext) -> None:
@@ -158,6 +172,7 @@ class PCAResidual(Strategy):
         self._last_gross = 0.0
         self._fit_failures = 0
         self._entries = 0
+        self._dirty = False
 
     # -- main loop -------------------------------------------------------
     def on_bar(self, ctx: StrategyContext, bar: Bar) -> None:
@@ -175,6 +190,8 @@ class PCAResidual(Strategy):
         if self._fit is not None:
             changed = self._open_signals(returns) or changed
         if changed:
+            self._dirty = True
+        if self._dirty and not ctx.open_orders():
             self._rebalance(ctx)
 
     def _update_signals(self, returns: Sequence[Sequence[float]]) -> bool:
@@ -226,9 +243,10 @@ class PCAResidual(Strategy):
         for index, symbol in enumerate(self.symbols):
             if symbol in self._signals:
                 continue
-            if self.spread_bps.get(symbol, float(self.p("default_spread_bps"))) > float(
-                self.p("max_bid_ask_bps")
-            ):
+            if self.spread_bps.get(
+                symbol,
+                float(self.p("default_spread_bps")) * float(self.p("spread_multiplier")),
+            ) > float(self.p("max_bid_ask_bps")):
                 continue
             if fit.residual_sd[index] * fit.sigmas[index] < float(self.p("min_resid_bps")) / 10_000.0:
                 continue
@@ -311,6 +329,7 @@ class PCAResidual(Strategy):
             )
         self._target = target
         self._last_gross = gross
+        self._dirty = False
 
     # -- data / model ----------------------------------------------------
     def _panel_returns(self, ctx: StrategyContext) -> list[list[float]] | None:
@@ -365,7 +384,8 @@ class PCAResidual(Strategy):
 
     def _trade_cost_bps(self, symbol: str) -> float:
         spread = self.spread_bps.get(
-            symbol.upper(), float(self.p("default_spread_bps"))
+            symbol.upper(),
+            float(self.p("default_spread_bps")) * float(self.p("spread_multiplier")),
         )
         return spread / 2.0 + float(self.p("slippage_bps"))
 

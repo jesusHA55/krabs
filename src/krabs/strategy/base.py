@@ -50,6 +50,7 @@ class StrategyContext:
         fractional: bool = True,
         min_trade_notional: float = 1.0,
         logger: logging.Logger | None = None,
+        open_orders: Callable[[], Sequence[Order]] | None = None,
     ) -> None:
         self.strategy_id = strategy_id
         self.wallet = wallet
@@ -59,6 +60,7 @@ class StrategyContext:
         self.fractional = fractional
         self.min_trade_notional = min_trade_notional
         self.log = logger or logging.getLogger(f"krabs.strategy.{strategy_id}")
+        self._open_orders = open_orders or (lambda: ())
 
     # -- state -----------------------------------------------------------
     @property
@@ -81,6 +83,16 @@ class StrategyContext:
 
     def positions(self) -> dict[str, Position]:
         return self.wallet.positions()
+
+    def open_orders(self) -> list[Order]:
+        """Orders accepted but not yet filled, as seen by the broker."""
+        return list(self._open_orders())
+
+    def has_open_order(self, symbol: str | None = None) -> bool:
+        wanted = symbol.upper() if symbol else None
+        return any(
+            wanted is None or order.symbol == wanted for order in self.open_orders()
+        )
 
     # -- market data -----------------------------------------------------
     def bars(self, symbol: str, n: int = 2) -> list[Bar]:

@@ -94,6 +94,9 @@ class ETFPairsTests(unittest.TestCase):
                 targets.append((symbol, round(weight, 6)))
                 return object()
 
+            def has_open_order(self, symbol=None):
+                return False
+
         strategy = ETFPairs(
             clusters={"test": ["AAA", "BBB"]},
             driver="AAA",

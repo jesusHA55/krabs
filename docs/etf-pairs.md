@@ -240,6 +240,7 @@ to `allocation` (default 10%) and makes the two legs roughly beta-neutral.
 | `max_bid_ask_bps` | 5.0 | per leg, strict |
 | `default_spread_bps` | 2.0 | fallback estimate |
 | `spreads_csv` | `""` | captured per-symbol spread table |
+| `spread_multiplier` | 1.0 | stress/test multiplier for the spread table |
 | `model` | `ou` | `local_level`, `ou` or `ou_dynamic` |
 | `ou_window` / `ou_refit` | 120 / 20 | AR(1) fit window and refit cadence |
 | `ou_obs_ratio` | 0.5 | observation-noise share of AR(1) variance |
@@ -262,15 +263,15 @@ cold start):
 
 | Model | Return | Sharpe | Max DD | Fills | Avg exposure |
 |---|---:|---:|---:|---:|---:|
-| `local_level` | −2.98% | −0.45 | −3.69% | 498 | 5.4% |
-| `ou` | **−1.55%** | **−0.21** | **−3.17%** | 794 | 15.1% |
+| `local_level` | −3.11% | −0.47 | −3.85% | 354 | 5.2% |
+| `ou` | **−1.66%** | **−0.23** | **−3.39%** | 514 | 14.7% |
 
 Holdout segment, 2025-06-13 → 2026-10:
 
 | Model | Return | Sharpe | Max DD | Fills |
 |---|---:|---:|---:|---:|
-| `local_level` | +0.15% | +0.20 | −0.48% | 60 |
-| `ou` | +1.26% | +1.51 | −0.35% | 138 |
+| `local_level` | +0.16% | +0.21 | −0.50% | 44 |
+| `ou` | +1.40% | +1.73 | −0.32% | 102 |
 
 The OU filter improves every summary statistic and is stable across nearby
 window/refit settings, but two of three segments are still negative. This is a
@@ -291,7 +292,10 @@ filter.
 - Selecting one pair per cluster avoids leg conflicts; a portfolio allocator that
   aggregates overlapping legs would allow more pairs.
 - Event risk (mergers, index changes, halts) is not modelled.
-- A warm-start optimizer run (folds 2021-03 → 2025-06, 20 random trials) found
-  no positive fold mean: fold Sharpe 0.03 and −0.41, score −0.33. The warm
-  holdout was +0.69% (Sharpe 1.06, 46 trades), but a positive holdout from a
-  negative in-sample search is not evidence of an edge.
+- A warm-start optimizer run found no positive fold mean; its holdout was
+  positive but small and not corroborated. See `docs/stress-testing.md` for the
+  cost/borrow/delay matrix. At ×3 spreads the strategy stops trading entirely
+  because every leg breaches the 5 bps filter.
+- While either leg has a live order, the pair waits instead of stacking another
+  target. This is required for delayed/partial fills and becomes visible in the
+  stress harness.

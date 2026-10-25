@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from datetime import datetime, timezone
 
-from krabs.events import Bar, Fill, Side
+from krabs.events import Bar, Fill, Order, OrderIntent, Side
 from krabs.strategy import build, coerce_params, describe, load_builtin
 from krabs.strategy.base import StrategyContext, StrategyError
 from krabs.strategy.examples.sma_cross import SmaCross
@@ -46,6 +46,21 @@ class StrategyTests(unittest.TestCase):
     def test_sma_cross_validation(self):
         with self.assertRaises(ValueError):
             SmaCross(fast=10, slow=5)
+
+    def test_open_order_visibility(self):
+        wallet = PaperWallet(10_000)
+        order = Order(
+            client_id="test-1",
+            intent=OrderIntent("AAPL", Side.BUY, qty=1),
+            qty=1,
+        )
+        ctx = make_ctx(wallet, [], [])
+        ctx._open_orders = lambda: [order]
+        self.assertTrue(ctx.has_open_order("AAPL"))
+        self.assertTrue(ctx.has_open_order("aapl"))
+        self.assertFalse(ctx.has_open_order("MSFT"))
+        self.assertTrue(ctx.has_open_order())
+        self.assertEqual(ctx.open_orders(), [order])
 
     def test_target_weight_buys_and_sells(self):
         wallet = PaperWallet(10_000)

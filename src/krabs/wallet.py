@@ -96,6 +96,20 @@ class Ledger:
         """Roll the daily loss baseline. Called by the engine at session change."""
         self.day_start_equity = self.snapshot(ts).equity
 
+    def charge(self, amount: float, ts: datetime | None = None, reason: str = "") -> float:
+        """Debit a cost that is not attached to a fill (e.g. short borrow).
+
+        Returns the amount charged. Cash may go negative; margin and equity
+        still reflect the charge.
+        """
+        value = max(0.0, float(amount))
+        if value <= 0:
+            return 0.0
+        self._cash -= value
+        if ts is not None:
+            self._last_ts = ts
+        return value
+
     # -- accounting ------------------------------------------------------
     def apply_fill(self, fill: Fill) -> None:
         if fill.qty <= 0:

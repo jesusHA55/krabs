@@ -76,6 +76,7 @@ class ETFPairs(Strategy):
         "max_bid_ask_bps": 5.0,
         "default_spread_bps": 2.0,
         "spreads_csv": "",
+        "spread_multiplier": 1.0,
         "min_abs_beta": 0.20,
         "max_abs_beta": 5.0,
         "spread_bps": {},
@@ -137,6 +138,8 @@ class ETFPairs(Strategy):
             raise ValueError("ou_window must be smaller than formation_days")
         if int(self.p("beta_var")) < 0:
             raise ValueError("beta_var must be >= 0")
+        if float(self.p("spread_multiplier")) <= 0:
+            raise ValueError("spread_multiplier must be positive")
         self.log = logging.getLogger("krabs.strategy.etf_pairs")
         self.spread_bps = self._load_spreads()
         self._bar_index = 0
@@ -146,24 +149,30 @@ class ETFPairs(Strategy):
         self._last_selection: list[PairCandidate] = []
 
     def _load_spreads(self) -> dict[str, float]:
-        """Per-symbol bid/ask in bps: explicit params, then CSV overrides."""
+        """Per-symbol bid/ask in bps: params, then CSV, then the stress multiplier."""
         spreads = {
             str(symbol).upper(): float(value)
             for symbol, value in dict(self.p("spread_bps") or {}).items()
         }
-        self.spreads_source = "params" if spreads else "default"
+        source = "params" if spreads else "default"
         spreads_csv = str(self.p("spreads_csv") or "").strip()
-        if not spreads_csv:
-            return spreads
-        loaded = load_spreads(spreads_csv, logger=self.log)
-        if not loaded:
-            self.log.warning(
-                "no spreads in %s; falling back to configured/estimated spreads",
-                spreads_csv,
-            )
-            return spreads
-        spreads.update(loaded)
-        self.spreads_source = f"csv:{spreads_csv} ({len(loaded)} symbols)"
+        if spreads_csv:
+            loaded = load_spreads(spreads_csv, logger=self.log)
+            if loaded:
+                spreads.update(loaded)
+                source = f"csv:{spreads_csv} ({len(loaded)} symbols)"
+            else:
+                self.log.warning(
+                    "no spreads in %s; falling back to configured estimates",
+                    spreads_csv,
+                )
+        multiplier = float(self.p("spread_multiplier"))
+        if multiplier != 1.0:
+            spreads = {
+                symbol: value * multiplier for symbol, value in spreads.items()
+            }
+            source += f" x{multiplier:g}"
+        self.spreads_source = source
         return spreads
 
     def _signal_refs(self) -> tuple[str, str, str]:
@@ -174,7 +183,7 @@ class ETFPairs(Strategy):
         return "ou.z", "ou.innovation", ""
 
     def _friction_bps(self, left: str, right: str, beta: float) -> float:
-        default = float(self.p("default_spread_bps"))
+        default = float(self.p("default_spread_bps")) * float(self.p("spread_multiplier"))
         left_bps = self.spread_bps.get(left.upper(), default)
         right_bps = self.spread_bps.get(right.upper(), default)
         return 0.5 * (left_bps + abs(beta) * right_bps)
@@ -252,7 +261,8 @@ class ETFPairs(Strategy):
             min_crossings_per_year=float(self.p("min_crossings_per_year")),
             max_bid_ask_bps=float(self.p("max_bid_ask_bps")),
             spread_bps=self.spread_bps,
-            default_spread_bps=float(self.p("default_spread_bps")),
+            default_spread_bps=float(self.p("default_spread_bps"))
+            * float(self.p("spread_multiplier")),
             max_pairs=int(self.p("max_pairs")),
             min_observations=max(60, int(self.p("formation_days")) // 2),
             annualization=float(self.p("periods_per_year")),
@@ -409,6 +419,22 @@ class ETFPairs(Strategy):
         exit_z = float(self.p("exit_z"))
         friction_multiple = float(self.p("friction_multiple"))
         for cluster, active in list(self._active.items()):
+            if ctx.has_open_order(active.candidate.left) or ctx.has_open_order(
+                active.candidate.right
+            ):
+                self.log.debug(
+                    "waiting at %s for open orders on %s/%s: %s",
+                    ctx.now.isoformat(),
+                    active.candidate.left,
+                    active.candidate.right,
+                    [
+                        (order.symbol, order.status.value, order.created_at.isoformat())
+                        for order in ctx.open_orders()
+                        if order.symbol
+                        in (active.candidate.left, active.candidate.right)
+                    ],
+                )
+                continue
             if active.closing:
                 if ctx.position(active.candidate.left).is_flat and ctx.position(
                     active.candidate.right

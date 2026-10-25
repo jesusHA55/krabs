@@ -493,6 +493,7 @@ def cmd_runtime(cfg: Config, args: argparse.Namespace, mode: str) -> int:
             _fill_model(cfg),
             run_id=run_id,
             logger=logging.getLogger("krabs.broker.paper"),
+            delay_bars=cfg.execution.delay_bars,
         )
     else:
         wallet = BrokerWallet(

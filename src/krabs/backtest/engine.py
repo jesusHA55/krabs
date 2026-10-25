@@ -115,6 +115,7 @@ class BacktestEngine:
                 allow_partial_fills=cfg.execution.allow_partial_fills,
                 spread_bps_by_symbol=cfg.execution.spread_costs(),
             ),
+            delay_bars=cfg.execution.delay_bars,
             run_id=self.run_id,
             logger=self.log,
             on_fill=self._on_fill,
@@ -136,6 +137,7 @@ class BacktestEngine:
         self.adjusted = 0
         self._last_event_ts: datetime | None = None
         self._ctx: StrategyContext | None = None
+        self._borrow_paid = 0.0
 
     # -- public ----------------------------------------------------------
     def run(
@@ -174,6 +176,7 @@ class BacktestEngine:
             day = ts.astimezone(EASTERN).date()
             if day != current_day:
                 if current_day is not None:
+                    self._charge_borrow(ts)
                     self.wallet.reset_day(ts)
                     self.risk.reset_day(ts)
                 current_day = day
@@ -212,6 +215,7 @@ class BacktestEngine:
         self.strategy.on_end(ctx)
         final = self.wallet.snapshot(self.clock.now())
         metrics = compute_metrics(points, self.fills, self.cfg.wallet.starting_cash)
+        metrics["borrow_cost"] = self._borrow_paid
         elapsed = time.perf_counter() - t0
 
         result = BacktestResult(
@@ -247,6 +251,26 @@ class BacktestEngine:
             for ts, reason in self.risk.drain_events():
                 self.store.log_event(self.run_id, "ERROR", "risk", {"reason": reason})
         return result
+
+    def _charge_borrow(self, ts: datetime) -> None:
+        """Charge one day of short borrow against the previous close marks."""
+        rate = float(self.cfg.execution.borrow_bps_per_year)
+        if rate <= 0:
+            return
+        prices = {
+            symbol: history[-1].close
+            for symbol, history in self._history.items()
+            if history
+        }
+        if not prices:
+            return
+        self.wallet.mark_all(prices)
+        short_value = abs(self.wallet.snapshot(ts).short_value)
+        if short_value <= 0:
+            return
+        amount = short_value * (rate / 10_000.0) / 252.0
+        charged = self.wallet.charge(amount, ts, "short borrow")
+        self._borrow_paid += charged
 
     def _prefill_history(self, start: datetime, warmup_bars: int) -> None:
         """Load history before ``start`` without trading or recording metrics.
@@ -298,6 +322,7 @@ class BacktestEngine:
             now=self.clock.now,
             fractional=self.cfg.wallet.fractional,
             logger=logging.getLogger(f"krabs.strategy.{self.strategy.id}"),
+            open_orders=self.broker.open_orders,
         )
 
     def _submit(self, intent: OrderIntent) -> Order | None:

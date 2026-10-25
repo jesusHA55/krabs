@@ -48,6 +48,24 @@ class PaperBrokerTests(unittest.TestCase):
         broker.on_event(bar(2, 100, 101, 99, 100))
         self.assertAlmostEqual(wallet.position("AAPL").avg_price, 100.10, places=4)
 
+    def test_delay_bars_holds_a_market_order_for_extra_bars(self):
+        clock = SimulatedClock(T0)
+        wallet = PaperWallet(100_000)
+        broker = PaperBroker(
+            wallet,
+            clock,
+            FillModel(slippage_bps=0, half_spread_bps=0, max_participation=0),
+            delay_bars=1,
+        )
+        broker.on_event(bar(1, 100, 101, 99, 100))
+        order = broker.submit(OrderIntent("AAPL", Side.BUY, qty=1))
+        broker.on_event(bar(2, 100, 101, 99, 100))
+        self.assertEqual(order.status, OrderStatus.NEW)
+        self.assertEqual(order.filled_qty, 0.0)
+        broker.on_event(bar(3, 100, 101, 99, 100))
+        self.assertEqual(order.status, OrderStatus.FILLED)
+        self.assertAlmostEqual(order.avg_price, 100.0)
+
     def test_limit_only_fills_when_crossed(self):
         self.broker.on_event(bar(1, 100, 101, 99, 100))
         order = self.broker.submit(

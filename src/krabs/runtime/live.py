@@ -172,6 +172,7 @@ class TradingRuntime:
             now=self.clock.now,
             fractional=self.cfg.wallet.fractional,
             logger=logging.getLogger(f"krabs.strategy.{self.strategy.id}"),
+            open_orders=self.broker.open_orders,
         )
         self.strategy.on_start(self._ctx)
         self._heartbeat(now, self.wallet.snapshot(now))

@@ -338,6 +338,16 @@ and cost-aware entries:
 See **[docs/pca-residual.md](docs/pca-residual.md)** for the model, portfolio
 construction and results.
 
+Stress the same strategies with wider spreads, borrow costs, extra execution
+delay and participation caps:
+
+```bash
+python3 scripts/stress.py configs/etf-pairs.toml configs/pca-residual.toml
+```
+
+See **[docs/stress-testing.md](docs/stress-testing.md)** for the levers and the
+latest matrix.
+
 ## Dashboard
 
 A mobile-friendly web dashboard reads the heartbeat, audit database, kill switch

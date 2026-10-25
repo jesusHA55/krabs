@@ -74,6 +74,8 @@ timestamp. New orders cannot fill until the next timestamp.
 | `ctx.snapshot()` | Full `AccountState` (buying power, gross, day PnL). |
 | `ctx.position(symbol)` | `Position` (qty, avg_price, market_price, unrealized_pnl). |
 | `ctx.positions()` | Non-flat positions dict. |
+| `ctx.open_orders()` | Accepted but unfilled orders (list). |
+| `ctx.has_open_order(symbol)` | True if that symbol (or any symbol) has a live order. |
 
 ### Market data
 

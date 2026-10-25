@@ -97,6 +97,7 @@ cannot silently redefine the position; exits use that same fit.
 | `min_resid_bps` | 5.0 | minimum residual daily volatility |
 | `max_bid_ask_bps` | 5.0 | traded asset liquidity filter |
 | `spreads_csv` | `""` | captured spread table |
+| `spread_multiplier` | 1.0 | stress/test multiplier for the spread table |
 | `slippage_bps` | 1.0 | cost estimate used by the entry filter |
 
 ## Results
@@ -165,3 +166,6 @@ backtest alpha; check it before trusting a residual strategy.
   Sharpe −0.16 / +0.69 and a **negative** 2025-06 → 2026-10 holdout
   (Sharpe −0.59, −0.74%, 1,286 trades). The strategy remains research code,
   not a deployment candidate.
+- In the stress harness, the full-period result falls from +4.13% to +0.70% at
+  ×2 spreads and is flat at ×3; the combined spread/borrow/delay scenario is
+  negative. See `docs/stress-testing.md`.
