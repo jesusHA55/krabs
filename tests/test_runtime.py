@@ -133,5 +133,92 @@ class RuntimeTests(unittest.TestCase):
             self.assertEqual(stats.fills, 0)
 
 
+class SplitFeed:
+    """Warmup history ends at the previous close; live polling returns today."""
+
+    def __init__(self, history_bars, live_bars):
+        self.history_bars = history_bars
+        self.live_bars = live_bars
+
+    def history(self, symbols, timeframe, start, end=None):
+        return [b for b in self.history_bars if b.symbol in symbols]
+
+    def latest_bars(self, symbols, timeframe, lookback=10):
+        return [b for b in self.live_bars if b.symbol in symbols]
+
+
+class LarryDayStartTests(unittest.TestCase):
+    def test_day_start_targets_are_not_rejected_as_stale(self):
+        """Regression: on_day_start ran before the day's first bar was recorded,
+        so with yesterday's close as the newest event every order was rejected
+        as stale market data, and the targets were never retried."""
+        import json
+
+        from krabs.market.calendar import EASTERN
+        from krabs.strategy.examples.larry import LarryTargets
+
+        now = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+        yesterday = now - timedelta(hours=18)
+        history = [Bar("SPY", yesterday, 400, 401, 399, 400, 1e6)]
+        live = [
+            Bar("SPY", now - timedelta(minutes=2 - i), 400, 401, 399, 400, 1e6)
+            for i in range(2)
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            targets = Path(tmp) / "targets.json"
+            as_of = live[0].ts.astimezone(EASTERN).date().isoformat()
+            targets.write_text(json.dumps({"as_of": as_of, "targets": {"SPY": 0.5}}))
+            cfg = Config.from_dict(
+                {
+                    "app": {"mode": "paper", "data_dir": tmp},
+                    "market": {
+                        "symbols": ["SPY"],
+                        "timeframe": "1Min",
+                        "enforce_market_hours": False,
+                    },
+                    "execution": {
+                        "slippage_bps": 0.0,
+                        "half_spread_bps": 0.0,
+                        "max_participation": 0.0,
+                    },
+                    "risk": {
+                        "max_order_notional": 100_000.0,
+                        "max_position_pct": 1.0,
+                        "max_gross_exposure_pct": 1.0,
+                        "max_data_age_s": 300.0,
+                        "duplicate_window_s": 0.0,
+                    },
+                    "feed": {"provider": "synthetic", "poll_seconds": 0.01},
+                    "storage": {"enabled": False},
+                }
+            )
+            wallet = PaperWallet(10_000)
+            kill = KillSwitch(Path(tmp) / "KILL")
+            risk = RiskEngine(cfg.risk, wallet, symbols=["SPY"], kill=kill)
+            broker = PaperBroker(
+                wallet,
+                RealClock(),
+                FillModel(slippage_bps=0, half_spread_bps=0, max_participation=0),
+                run_id="larry-day-start",
+            )
+            strategy = LarryTargets(source=str(targets), drift_band=0.0)
+            runtime = TradingRuntime(
+                cfg,
+                strategy,
+                SplitFeed(history, live),
+                broker,
+                wallet,
+                risk,
+                run_id="larry-day-start",
+                mode="paper",
+                kill=kill,
+            )
+            stats = asyncio.run(runtime.run(max_cycles=2, cancel_on_exit=False))
+
+            self.assertEqual(stats.orders, 1)
+            self.assertIsNone(strategy.diagnostics()["pending_day"])
+            self.assertEqual(strategy.diagnostics()["last_applied_day"], as_of)
+
+
 if __name__ == "__main__":
     unittest.main()

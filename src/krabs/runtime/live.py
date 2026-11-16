@@ -86,6 +86,7 @@ class TradingRuntime:
         self._was_halted = False
         self._ctx: StrategyContext | None = None
         self._current_day = None
+        self._pending_day_start = None
         self._open_orders_cache: list[Order] = []
         self._seq_prefix = run_prefix(run_id)
 
@@ -319,7 +320,10 @@ class TradingRuntime:
                     self.risk.reset_day(ts)
                     self.log.info("new trading day: %s", day)
                 self._current_day = day
-                self.strategy.on_day_start(self._ctx, day)
+                # Deferred until this chunk is recorded: before that, the
+                # newest known bar is the previous close, and every order the
+                # strategy sends would be rejected as stale market data.
+                self._pending_day_start = day
 
             for bar in chunk:
                 if not isinstance(self.broker, AlpacaBroker):
@@ -340,6 +344,9 @@ class TradingRuntime:
                 await asyncio.to_thread(self.broker.cancel_all)
                 self._was_halted = True
             if self._ctx is not None and not self.risk.halted:
+                if self._pending_day_start is not None:
+                    pending, self._pending_day_start = self._pending_day_start, None
+                    self.strategy.on_day_start(self._ctx, pending)
                 for bar in chunk:
                     self.strategy.on_bar(self._ctx, bar)
 

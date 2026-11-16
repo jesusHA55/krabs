@@ -29,8 +29,8 @@ from pathlib import Path
 from typing import Any
 from urllib.request import Request, urlopen
 
-from ...events import Bar
-from ...strategy.base import Strategy, StrategyContext
+from ...events import Bar, Order
+from ...strategy.base import Strategy, StrategyContext, StrategyError
 from ..registry import register
 
 
@@ -69,6 +69,8 @@ class LarryTargets(Strategy):
         self._last_targets: dict[str, float] = {}
         self._last_as_of: date | None = None
         self._last_applied_day: date | None = None
+        self._pending_day: date | None = None
+        self._last_attempt_ts: datetime | None = None
         self._load_error: str = ""
 
     # -- lifecycle -------------------------------------------------------
@@ -77,6 +79,8 @@ class LarryTargets(Strategy):
         self._last_targets = {}
         self._last_as_of = None
         self._last_applied_day = None
+        self._pending_day = None
+        self._last_attempt_ts = None
         self._load_error = ""
         try:
             self._rows = self._load_rows()
@@ -89,6 +93,20 @@ class LarryTargets(Strategy):
     def on_day_start(self, ctx: StrategyContext, day: date) -> None:
         if self._last_applied_day == day:
             return
+        self._reload()
+        self._pending_day = day
+        self._attempt(ctx)
+
+    def on_bar(self, ctx: StrategyContext, bar: Bar) -> None:
+        # A day's targets stay pending until every order they need has been
+        # accepted. Retry at most once per new bar timestamp.
+        if self._pending_day is None:
+            return
+        if self._last_attempt_ts is not None and bar.ts <= self._last_attempt_ts:
+            return
+        self._attempt(ctx)
+
+    def _reload(self) -> None:
         if not self.static_targets:
             # Larry writes a fresh file after each close; the Krabs runtime is
             # long-lived, so reload before the first bar of each day.
@@ -99,19 +117,33 @@ class LarryTargets(Strategy):
                 self._load_error = str(exc)
                 self.log.error("could not reload Larry targets: %s", exc)
                 self._rows = []
+
+    def _attempt(self, ctx: StrategyContext) -> None:
+        day = self._pending_day
+        if day is None:
+            return
+        self._last_attempt_ts = ctx.now
+        if ctx.has_open_order():
+            self.log.info("deferring Larry apply for %s: open orders", day)
+            return
         targets = self._targets_for(day)
         if targets is None:
-            if bool(self.p("fail_closed")):
-                self.log.warning("no fresh Larry targets for %s; flattening", day)
-                ctx.flatten(reason="larry missing/stale targets")
-                self._last_targets = {}
-                self._last_applied_day = day
-            return
-        if ctx.has_open_order():
-            self.log.info("skipping Larry apply for %s: open orders", day)
-            return
-        self._apply(ctx, targets, day)
-        self._last_applied_day = day
+            if not bool(self.p("fail_closed")):
+                self._pending_day = None
+                return
+            self.log.warning("no fresh Larry targets for %s; flattening", day)
+            done = True
+            for symbol, pos in list(ctx.positions().items()):
+                if not pos.is_flat:
+                    done &= _accepted(ctx.close(symbol, reason="larry missing/stale targets"))
+            self._last_targets = {}
+        else:
+            done = self._apply(ctx, targets, day)
+        if done:
+            self._last_applied_day = day
+            self._pending_day = None
+        else:
+            self.log.warning("Larry targets for %s not fully accepted; will retry", day)
 
     # -- loading ---------------------------------------------------------
     def _load_rows(self) -> list[tuple[date, dict[str, float]]]:
@@ -181,7 +213,13 @@ class LarryTargets(Strategy):
         return targets
 
     # -- execution -------------------------------------------------------
-    def _apply(self, ctx: StrategyContext, targets: dict[str, float], day: date) -> None:
+    def _apply(self, ctx: StrategyContext, targets: dict[str, float], day: date) -> bool:
+        """Send the orders needed to reach ``targets``; True if all were accepted.
+
+        There is deliberately no "same targets as last time" shortcut: the
+        drift band already makes an on-target book a no-op, and a shortcut would
+        hide targets whose orders were rejected.
+        """
         allocation = float(self.p("allocation"))
         gross = sum(abs(weight) for weight in targets.values())
         scale = min(1.0, allocation / gross) if gross > 0 else 1.0
@@ -190,34 +228,57 @@ class LarryTargets(Strategy):
             for symbol, weight in targets.items()
             if abs(weight) > 1e-12
         }
-        if weights == self._last_targets:
-            return
 
         drift_band = float(self.p("drift_band"))
+        done = True
         # Sell/close first so a rotation does not depend on an unfilled buy.
         for symbol in list(ctx.positions()):
             if symbol not in weights and not ctx.position(symbol).is_flat:
-                ctx.close(symbol, reason=f"larry {day} exit")
+                done &= _accepted(ctx.close(symbol, reason=f"larry {day} exit"))
+        equity = ctx.equity
         for symbol, weight in weights.items():
-            current = 0.0
-            if ctx.equity > 0:
-                pos = ctx.position(symbol)
-                current = pos.qty * ctx.price(symbol) / ctx.equity
+            try:
+                price = ctx.price(symbol)
+            except StrategyError as exc:
+                self.log.warning("cannot target %s yet: %s", symbol, exc)
+                done = False
+                continue
+            current = ctx.position(symbol).qty * price / equity if equity > 0 else 0.0
             if abs(current - weight) < drift_band:
                 continue
-            ctx.target_weight(symbol, weight, reason=f"larry {day} target {weight:.2%}")
+            if abs(weight - current) * equity < ctx.min_trade_notional:
+                continue  # target_weight would not send anything
+            order = ctx.target_weight(
+                symbol, weight, price=price, reason=f"larry {day} target {weight:.2%}"
+            )
+            done &= _accepted(order)
 
         self._last_targets = weights
-        self.log.info("applied Larry targets as_of=%s day=%s: %s", self._last_as_of, day, weights)
+        self.log.info(
+            "%s Larry targets as_of=%s day=%s: %s",
+            "applied" if done else "partially applied",
+            self._last_as_of,
+            day,
+            weights,
+        )
+        return done
 
     def diagnostics(self) -> dict[str, Any]:
         return {
             "ready": bool(self._last_targets),
+            "pending_day": self._pending_day.isoformat() if self._pending_day else None,
+            "last_applied_day": (
+                self._last_applied_day.isoformat() if self._last_applied_day else None
+            ),
             "model": "larry",
             "as_of": self._last_as_of.isoformat() if self._last_as_of else None,
             "targets": self._last_targets,
             "load_error": self._load_error,
         }
+
+
+def _accepted(order: Order | None) -> bool:
+    return order is not None and order.status.value != "rejected"
 
 
 def _parse_day(value: object) -> date:

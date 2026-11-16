@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 import tempfile
 import unittest
 
-from krabs.events import Bar, Fill, Side
+from krabs.events import Bar, Fill, Order, Side
 from krabs.strategy.base import StrategyContext
 from krabs.strategy.examples.larry import LarryTargets
 from krabs.wallet import PaperWallet
@@ -118,6 +118,55 @@ class LarryStrategyTests(unittest.TestCase):
             path.write_text(json.dumps(self.payload(as_of="2026-10-26", targets={"SSO": 0.5})), encoding="utf-8")
             strategy.on_day_start(ctx, date(2026, 10, 27))
         self.assertEqual([intent.symbol for intent in intents], ["BIL", "SSO"])
+
+    def test_rejected_targets_are_retried(self) -> None:
+        """Regression: rejected orders used to mark the day as applied, and the
+        unchanged targets were skipped on every later day."""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "targets.json"
+            path.write_text(
+                json.dumps(self.payload(as_of="2026-10-23", targets={"BIL": 0.5})),
+                encoding="utf-8",
+            )
+            strategy = LarryTargets(source=str(path), drift_band=0.0)
+            wallet = PaperWallet(1000)
+            bars = [Bar("BIL", TS, 100, 100, 100, 100, 1000)]
+            intents = []
+            accept = {"value": False}
+
+            def submit(intent):
+                intents.append(intent)
+                if not accept["value"]:
+                    return None  # risk rejection
+                return Order(client_id=f"o{len(intents)}", intent=intent, qty=intent.qty or 0.0)
+
+            ctx = StrategyContext(
+                strategy_id="larry",
+                wallet=wallet,
+                submit=submit,
+                bars=lambda symbol: [bar for bar in bars if bar.symbol == symbol],
+                now=lambda: TS,
+            )
+            strategy.on_start(ctx)
+            strategy.on_day_start(ctx, date(2026, 10, 26))
+            self.assertEqual(len(intents), 1)
+            self.assertEqual(strategy.diagnostics()["pending_day"], "2026-10-26")
+
+            # Same bar timestamp: no retry storm within one chunk.
+            strategy.on_bar(ctx, bars[0])
+            self.assertEqual(len(intents), 1)
+
+            # Next day, unchanged targets: still sent again.
+            strategy.on_day_start(ctx, date(2026, 10, 27))
+            self.assertEqual(len(intents), 2)
+
+            # Accepted on a later bar: the day is marked applied.
+            accept["value"] = True
+            later = Bar("BIL", TS + timedelta(minutes=5), 100, 100, 100, 100, 1000)
+            strategy.on_bar(ctx, later)
+            self.assertEqual(len(intents), 3)
+            self.assertIsNone(strategy.diagnostics()["pending_day"])
+            self.assertEqual(strategy.diagnostics()["last_applied_day"], "2026-10-27")
 
     def test_requires_source_or_static(self) -> None:
         with self.assertRaises(ValueError):
