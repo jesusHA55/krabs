@@ -17,12 +17,25 @@ or a historical file::
 
 Weights are per-position fractions of current equity. Missing or stale targets
 fail closed by flattening the managed book.
+
+Fast overnight (``fast_overnight = true``): a single-file payload may carry a
+``fast_overnight`` permission from Larry::
+
+    {"session": "2026-11-17", "symbol": "SPY", "weight": 0.1,
+     "min_price": 671.2, "stop_pct": 0.01, "entry_after": "15:55", ...}
+
+On the bar at or after ``entry_after`` ET on ``session`` (and before the close),
+the strategy raises ``symbol`` to its base target plus ``weight`` if the bar
+close is above ``min_price``. There is no separate exit order: the next
+session's base targets are applied after the open and remove the overlay. If
+that morning's open gapped down by more than ``stop_pct`` from the entry
+price, the same day's entry is skipped.
 """
 
 from __future__ import annotations
 
 import csv
-from datetime import date, datetime, timezone
+from datetime import date, datetime, time, timezone
 import json
 import logging
 from pathlib import Path
@@ -30,6 +43,7 @@ from typing import Any
 from urllib.request import Request, urlopen
 
 from ...events import Bar, Order
+from ...market.calendar import EASTERN, session_for
 from ...strategy.base import Strategy, StrategyContext, StrategyError
 from ..registry import register
 
@@ -46,6 +60,7 @@ class LarryTargets(Strategy):
         "drift_band": 0.01,
         "timeout_s": 10.0,
         "fail_closed": True,
+        "fast_overnight": False,
         "targets": {},
     }
 
@@ -72,6 +87,14 @@ class LarryTargets(Strategy):
         self._pending_day: date | None = None
         self._last_attempt_ts: datetime | None = None
         self._load_error: str = ""
+        self._reset_fast()
+
+    def _reset_fast(self) -> None:
+        self._fast_spec: dict[str, Any] | None = None
+        self._fast_decided_day: date | None = None
+        self._fast_entry: tuple[date, float, float] | None = None  # day, price, stop
+        self._fast_blocked_day: date | None = None
+        self._fast_status: str = ""
 
     # -- lifecycle -------------------------------------------------------
     def on_start(self, ctx: StrategyContext) -> None:
@@ -82,6 +105,7 @@ class LarryTargets(Strategy):
         self._pending_day = None
         self._last_attempt_ts = None
         self._load_error = ""
+        self._reset_fast()
         try:
             self._rows = self._load_rows()
         except Exception as exc:  # missing file / bad JSON must not crash the runtime
@@ -94,17 +118,99 @@ class LarryTargets(Strategy):
         if self._last_applied_day == day:
             return
         self._reload()
+        self._check_fast_gap(ctx, day)
         self._pending_day = day
         self._attempt(ctx)
 
     def on_bar(self, ctx: StrategyContext, bar: Bar) -> None:
         # A day's targets stay pending until every order they need has been
         # accepted. Retry at most once per new bar timestamp.
-        if self._pending_day is None:
+        if self._pending_day is not None and (
+            self._last_attempt_ts is None or bar.ts > self._last_attempt_ts
+        ):
+            self._attempt(ctx)
+        if bool(self.p("fast_overnight")):
+            self._maybe_enter_fast(ctx, bar)
+
+    # -- fast overnight ----------------------------------------------------
+    def _check_fast_gap(self, ctx: StrategyContext, day: date) -> None:
+        """On the exit morning, block today's entry after a large overnight gap."""
+
+        if self._fast_entry is None or day <= self._fast_entry[0]:
             return
-        if self._last_attempt_ts is not None and bar.ts <= self._last_attempt_ts:
+        entry_day, entry_price, stop = self._fast_entry
+        self._fast_entry = None
+        symbol = str((self._fast_spec or {}).get("symbol") or "SPY").upper()
+        today = [b for b in ctx.bars(symbol, 0) if b.ts.astimezone(EASTERN).date() == day]
+        if not today or entry_price <= 0:
             return
-        self._attempt(ctx)
+        gap = today[0].open / entry_price - 1.0
+        if stop > 0 and gap < -stop:
+            self._fast_blocked_day = day
+            self._fast_status = f"overnight stop: {symbol} gap {gap:.2%} on {day}"
+            self.log.warning("fast overnight stop hit: %s gap %.2f%%", symbol, gap * 100)
+
+    def _maybe_enter_fast(self, ctx: StrategyContext, bar: Bar) -> None:
+        spec = self._fast_spec
+        if not spec:
+            return
+        symbol = str(spec.get("symbol") or "").upper()
+        if bar.symbol.upper() != symbol:
+            return
+        local = bar.ts.astimezone(EASTERN)
+        day = local.date()
+        if self._fast_decided_day == day:
+            return
+        try:
+            session = date.fromisoformat(str(spec["session"]))
+            weight = float(spec.get("weight") or 0.0)
+            entry_after = time.fromisoformat(str(spec.get("entry_after") or "15:55"))
+            raw_min = spec.get("min_price")
+            min_price = float(raw_min) if raw_min is not None else None
+            stop = float(spec.get("stop_pct") or 0.0)
+        except (KeyError, TypeError, ValueError) as exc:
+            self._fast_decided_day = day
+            self._fast_status = f"invalid fast_overnight spec: {exc}"
+            self.log.error(self._fast_status)
+            return
+        if session != day:
+            return
+        market = session_for(day)
+        if market is None or local.time() < entry_after:
+            return
+        if bar.ts >= market.closes:
+            return  # the closing bar arrives after the bell; nothing to trade on
+        self._fast_decided_day = day  # one decision per session
+
+        skip = ""
+        if weight <= 0:
+            skip = "no permission from Larry"
+        elif self._pending_day is not None:
+            skip = "base targets still pending"
+        elif min_price is None or bar.close <= min_price:
+            skip = f"{symbol} {bar.close:.2f} not above {min_price}"
+        elif self._fast_blocked_day == day:
+            skip = "overnight stop hit this morning"
+        elif ctx.has_open_order(symbol):
+            skip = f"open order in {symbol}"
+        if skip:
+            self._fast_status = f"skipped {day}: {skip}"
+            self.log.info("fast overnight %s", self._fast_status)
+            return
+
+        base = self._last_targets.get(symbol, 0.0)
+        order = ctx.target_weight(
+            symbol,
+            base + weight,
+            price=bar.close,
+            reason=f"larry fast overnight {day} +{weight:.2%}",
+        )
+        if _accepted(order):
+            self._fast_entry = (day, bar.close, stop)
+            self._fast_status = f"entered {day}: {symbol} +{weight:.2%} at ~{bar.close:.2f}"
+        else:
+            self._fast_status = f"entry rejected {day}"
+        self.log.info("fast overnight %s", self._fast_status)
 
     def _reload(self) -> None:
         if not self.static_targets:
@@ -152,10 +258,13 @@ class LarryTargets(Strategy):
 
         raw = self._read_source(self.source)
         fmt = str(self.p("format")).lower()
+        self._fast_spec = None
         if fmt == "json":
             payload = json.loads(raw)
             rows: list[tuple[date, dict[str, float]]] = []
             if isinstance(payload, dict) and "targets" in payload:
+                fast = payload.get("fast_overnight")
+                self._fast_spec = fast if isinstance(fast, dict) else None
                 rows.append((_parse_day(payload.get("as_of") or payload.get("date")), _weights(payload["targets"])))
             elif isinstance(payload, dict):
                 for item in payload.get("rows", []):
@@ -274,6 +383,12 @@ class LarryTargets(Strategy):
             "as_of": self._last_as_of.isoformat() if self._last_as_of else None,
             "targets": self._last_targets,
             "load_error": self._load_error,
+            "fast_overnight": {
+                "enabled": bool(self.p("fast_overnight")),
+                "session": (self._fast_spec or {}).get("session"),
+                "weight": (self._fast_spec or {}).get("weight"),
+                "status": self._fast_status,
+            },
         }
 
 

@@ -168,6 +168,118 @@ class LarryStrategyTests(unittest.TestCase):
             self.assertIsNone(strategy.diagnostics()["pending_day"])
             self.assertEqual(strategy.diagnostics()["last_applied_day"], "2026-10-27")
 
+    def _fast_setup(self, directory, *, weight=0.1, min_price=600.0, stop=0.01):
+        path = Path(directory) / "targets.json"
+        path.write_text(
+            json.dumps(
+                {
+                    "as_of": "2026-11-16",
+                    "targets": {"BIL": 0.5},
+                    "fast_overnight": {
+                        "session": "2026-11-17",
+                        "symbol": "SPY",
+                        "weight": weight,
+                        "min_price": min_price,
+                        "stop_pct": stop,
+                        "entry_after": "15:55",
+                        "exit_after": "09:35",
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        strategy = LarryTargets(source=str(path), drift_band=0.01, fast_overnight=True)
+        wallet = PaperWallet(1000)
+        bars: list[Bar] = []
+        intents = []
+
+        def submit(intent):
+            intents.append(intent)
+            price = [b for b in bars if b.symbol == intent.symbol][-1].close
+            wallet.apply_fill(Fill(f"f{len(intents)}", intent.symbol, intent.side, intent.qty, price, bars[-1].ts))
+            return Order(client_id=f"o{len(intents)}", intent=intent, qty=intent.qty or 0.0)
+
+        ctx = StrategyContext(
+            strategy_id="larry",
+            wallet=wallet,
+            submit=submit,
+            bars=lambda symbol: [bar for bar in bars if bar.symbol == symbol],
+            now=lambda: bars[-1].ts if bars else TS,
+        )
+        return strategy, wallet, bars, intents, ctx, path
+
+    def test_fast_overnight_enters_before_close_and_exits_next_morning(self) -> None:
+        def et(day, hh, mm):  # November: ET = UTC-5
+            return datetime(2026, 11, day, hh + 5, mm, tzinfo=timezone.utc)
+
+        with tempfile.TemporaryDirectory() as directory:
+            strategy, wallet, bars, intents, ctx, path = self._fast_setup(directory)
+            strategy.on_start(ctx)
+            bars += [Bar("BIL", et(17, 9, 35), 100, 100, 100, 100, 1e5),
+                     Bar("SPY", et(17, 9, 35), 650, 651, 649, 650, 1e6)]
+            strategy.on_day_start(ctx, date(2026, 11, 17))
+            self.assertEqual([i.symbol for i in intents], ["BIL"])
+
+            bars.append(Bar("SPY", et(17, 15, 50), 650, 651, 649, 650, 1e6))
+            strategy.on_bar(ctx, bars[-1])  # before entry_after: nothing
+            self.assertEqual(len(intents), 1)
+
+            bars.append(Bar("SPY", et(17, 15, 55), 650, 651, 649, 650, 1e6))
+            strategy.on_bar(ctx, bars[-1])
+            self.assertEqual((intents[-1].symbol, intents[-1].side), ("SPY", Side.BUY))
+            self.assertAlmostEqual(wallet.position("SPY").qty * 650 / ctx.equity, 0.1, places=2)
+            strategy.on_bar(ctx, bars[-1])  # one decision per session
+            self.assertEqual(len(intents), 2)
+
+            # Next morning: Larry's new file has no SPY in the base targets.
+            path.write_text(json.dumps({"as_of": "2026-11-17", "targets": {"BIL": 0.5}}))
+            bars.append(Bar("SPY", et(18, 9, 35), 652, 653, 651, 652, 1e6))
+            strategy.on_day_start(ctx, date(2026, 11, 18))
+            self.assertEqual((intents[-1].symbol, intents[-1].side), ("SPY", Side.SELL))
+            self.assertTrue(wallet.position("SPY").is_flat)
+            self.assertIn("entered 2026-11-17", strategy.diagnostics()["fast_overnight"]["status"])
+
+    def test_fast_overnight_respects_price_gate_and_permission(self) -> None:
+        def et(day, hh, mm):
+            return datetime(2026, 11, day, hh + 5, mm, tzinfo=timezone.utc)
+
+        for kwargs, close in (({"min_price": 700.0}, 650), ({"weight": 0.0}, 650)):
+            with tempfile.TemporaryDirectory() as directory:
+                strategy, wallet, bars, intents, ctx, _ = self._fast_setup(directory, **kwargs)
+                strategy.on_start(ctx)
+                bars += [Bar("BIL", et(17, 9, 35), 100, 100, 100, 100, 1e5)]
+                strategy.on_day_start(ctx, date(2026, 11, 17))
+                bars.append(Bar("SPY", et(17, 15, 55), close, close, close, close, 1e6))
+                strategy.on_bar(ctx, bars[-1])
+                self.assertEqual([i.symbol for i in intents], ["BIL"], kwargs)
+                self.assertIn("skipped", strategy.diagnostics()["fast_overnight"]["status"])
+
+    def test_fast_overnight_gap_stop_blocks_next_entry(self) -> None:
+        def et(day, hh, mm):
+            return datetime(2026, 11, day, hh + 5, mm, tzinfo=timezone.utc)
+
+        with tempfile.TemporaryDirectory() as directory:
+            strategy, wallet, bars, intents, ctx, path = self._fast_setup(directory)
+            strategy.on_start(ctx)
+            bars += [Bar("BIL", et(17, 9, 35), 100, 100, 100, 100, 1e5),
+                     Bar("SPY", et(17, 15, 55), 650, 651, 649, 650, 1e6)]
+            strategy.on_day_start(ctx, date(2026, 11, 17))
+            strategy.on_bar(ctx, bars[-1])
+            self.assertEqual(intents[-1].symbol, "SPY")
+
+            # Permission for the 18th, but SPY opens 2% lower than the entry.
+            payload = json.loads(path.read_text())
+            payload["as_of"] = "2026-11-17"
+            payload["fast_overnight"]["session"] = "2026-11-18"
+            path.write_text(json.dumps(payload))
+            bars.append(Bar("SPY", et(18, 9, 35), 637, 640, 636, 638, 1e6))
+            strategy.on_day_start(ctx, date(2026, 11, 18))
+            sells = len(intents)
+            bars.append(Bar("SPY", et(18, 15, 55), 640, 641, 639, 640, 1e6))
+            strategy.on_bar(ctx, bars[-1])
+            self.assertEqual(len(intents), sells)
+            self.assertIn("overnight stop", strategy.diagnostics()["fast_overnight"]["status"])
+
     def test_requires_source_or_static(self) -> None:
         with self.assertRaises(ValueError):
             LarryTargets()

@@ -79,3 +79,5 @@ allocation = 1.0
 max_age_days = 5
 drift_band = 0.01
 fail_closed = true
+# Larry fast overnight overlay (SPY close-to-open, paper only); see docs/larry-paper.md.
+fast_overnight = true

@@ -39,6 +39,30 @@ ETF weights on a weekly rebalance; slow contributes SSO/SPY/BIL at 50%.
 Historical backtests can use `{"rows": [...]}` or CSV. A single "latest" file is
 for paper only; using it against historical bars would be look-ahead.
 
+## Fast overnight overlay
+
+With `fast_overnight = true` (set in `configs/larry-paper.toml`), the target
+file may carry Larry's `fast_overnight` permission:
+
+```json
+"fast_overnight": {"session": "2026-11-17", "symbol": "SPY", "weight": 0.1,
+                   "min_price": 671.2, "stop_pct": 0.01,
+                   "entry_after": "15:55", "exit_after": "09:35"}
+```
+
+- On `session`, the first bar at or after `entry_after` ET (the 15:55 5-minute
+  bar) raises SPY to its base target + `weight` if the bar close is above
+  `min_price`. One decision per session; skipped if the day's base targets are
+  still pending or an SPY order is open.
+- No separate exit order: the next session's base targets, applied on its first
+  bar, take SPY back down.
+- If that morning's first bar opens more than `stop_pct` below the entry price,
+  that day's entry is skipped.
+- Early-close days never reach 15:55, so there is no entry.
+
+`strategy_diagnostics.fast_overnight.status` in the heartbeat shows the last
+decision (`entered …`, `skipped …: reason`, `overnight stop …`).
+
 ## Run
 
 ```bash
