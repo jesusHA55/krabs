@@ -338,6 +338,14 @@ class TradingRuntime:
                 self.stats.bars += 1
                 processed.append(bar)
 
+            max_age = self.cfg.risk.max_data_age_s
+            if max_age > 0 and (now - ts).total_seconds() > max_age:
+                # Catch-up: this chunk is too old to act on, but the fetch
+                # also holds fresh bars (checked above). Record it without
+                # polling, so it cannot raise a false stale halt (which would
+                # also cancel every open order); the strategy skips it.
+                continue
+
             self.risk.poll(now, last_event_ts=self._last_event_ts)
             if self.risk.halted and not self._was_halted:
                 self.log.error("risk halt: %s", self.risk.halt_reason)

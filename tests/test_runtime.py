@@ -219,6 +219,80 @@ class LarryDayStartTests(unittest.TestCase):
             self.assertIsNone(strategy.diagnostics()["pending_day"])
             self.assertEqual(strategy.diagnostics()["last_applied_day"], as_of)
 
+    def test_catch_up_bars_do_not_raise_a_stale_halt(self):
+        """Regression: the first fetch of the day returns pre-market bars from
+        over an hour ago plus fresh ones. Each old chunk raised a stale-data
+        halt (logged as an error, with cancel_all) before the fresh chunk
+        cleared it."""
+        import json
+
+        from krabs.market.calendar import EASTERN
+        from krabs.strategy.examples.larry import LarryTargets
+
+        now = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+        history = [Bar("SPY", now - timedelta(hours=18), 400, 401, 399, 400, 1e6)]
+        live = [
+            Bar("SPY", now - timedelta(minutes=80), 400, 401, 399, 400, 1e6),
+            Bar("SPY", now - timedelta(minutes=1), 400, 401, 399, 400, 1e6),
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            targets = Path(tmp) / "targets.json"
+            as_of = live[-1].ts.astimezone(EASTERN).date().isoformat()
+            targets.write_text(json.dumps({"as_of": as_of, "targets": {"SPY": 0.5}}))
+            cfg = Config.from_dict(
+                {
+                    "app": {"mode": "paper", "data_dir": tmp},
+                    "market": {
+                        "symbols": ["SPY"],
+                        "timeframe": "1Min",
+                        "enforce_market_hours": False,
+                    },
+                    "execution": {
+                        "slippage_bps": 0.0,
+                        "half_spread_bps": 0.0,
+                        "max_participation": 0.0,
+                    },
+                    "risk": {
+                        "max_order_notional": 100_000.0,
+                        "max_position_pct": 1.0,
+                        "max_gross_exposure_pct": 1.0,
+                        "max_data_age_s": 300.0,
+                        "duplicate_window_s": 0.0,
+                    },
+                    "feed": {"provider": "synthetic", "poll_seconds": 0.01},
+                    "storage": {"enabled": False},
+                }
+            )
+            wallet = PaperWallet(10_000)
+            kill = KillSwitch(Path(tmp) / "KILL")
+            risk = RiskEngine(cfg.risk, wallet, symbols=["SPY"], kill=kill)
+            broker = PaperBroker(
+                wallet,
+                RealClock(),
+                FillModel(slippage_bps=0, half_spread_bps=0, max_participation=0),
+                run_id="larry-catch-up",
+            )
+            strategy = LarryTargets(source=str(targets), drift_band=0.0)
+            runtime = TradingRuntime(
+                cfg,
+                strategy,
+                SplitFeed(history, live),
+                broker,
+                wallet,
+                risk,
+                run_id="larry-catch-up",
+                mode="paper",
+                kill=kill,
+            )
+            with self.assertLogs("krabs", level="INFO") as logs:
+                stats = asyncio.run(runtime.run(max_cycles=1, cancel_on_exit=False))
+
+            self.assertFalse(
+                [line for line in logs.output if "risk halt" in line], logs.output
+            )
+            self.assertEqual(stats.orders, 1)
+            self.assertEqual(strategy.diagnostics()["last_applied_day"], as_of)
+
 
 if __name__ == "__main__":
     unittest.main()
